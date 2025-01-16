@@ -18,10 +18,9 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
-        'name',
+        'username',
         'email',
         'password',
-        'username',
         'kode',
         'role'
     ];
@@ -52,17 +51,5 @@ class User extends Authenticatable
     public function setPasswordAttribute($value)
     {
         $this->attributes['password'] = Hash::make($value);
-    }
-    public function setEmaildAttribute($value)
-    {
-        $this->attributes['email'] = Hash::make($value);
-    }
-    public function setUsernameAttribute($value)
-    {
-        $this->attributes['username'] = Hash::make($value);
-    }
-    public function setKodeAttribute($value)
-    {
-        $this->attributes['kode'] = Hash::make($value);
     }
 }

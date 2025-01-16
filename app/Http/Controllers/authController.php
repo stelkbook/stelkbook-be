@@ -11,19 +11,17 @@ class authController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'name' => 'required',
+            'username' => 'required',
             'email' => 'required',
             'password' => 'required',
-            'username' => 'required',
             'kode' => 'required',
-            'role' => 'required|in:siswa,guru,admin'
+            'role' => 'required|in:siswa,guru,admin,perpus'
         ]);
 
         $user = User::create([
-            'name' => $request->name,
+            'username' => $request->username,
             'email' => $request->email,
             'password' => Hash::make($request->password), // Mutator otomatis menghash password
-            'username' => $request->username,
             'kode' => $request->kode,
             'role' => $request->role,
         ]);
@@ -32,9 +30,9 @@ class authController extends Controller
     public function login(Request $request)
     {
         $request->validate([
+            'username' => 'required',
             'email' => 'required',
             'password' => 'required',
-            'username' => 'required',
             'kode' => 'required',
         ]);
         $user = User::where('email',$request->email)->first();
@@ -53,9 +51,6 @@ class authController extends Controller
             return response() -> json(['message' => 'Unauthorized: Incorrect credentials'],401);
         }
 
-        if($user->username !== $request->username){
-           return response() -> json(['message' => 'Unauthorized: the username is incorrect'],401);
-        }
         if($user->kode !== $request->kode){
             return response() -> json(['message' => 'Unauthorized: the kode is incorrect'],401);    
         }
