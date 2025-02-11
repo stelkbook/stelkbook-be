@@ -12,11 +12,12 @@ class authController extends Controller
     {
         $request->validate([
             'username' => 'required',
-            'email' => 'required',
+            'email' => 'required|email',
             'password' => 'required',
             'kode' => 'required',
             'role' => 'required|in:siswa,guru,admin,perpus',
-            'gender' => 'required|in:laki-laki,perempuan'
+            'gender' => 'required|in:laki-laki,perempuan',
+            'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,siswa,guru'
         ]);
 
         $user = User::create([
@@ -26,16 +27,17 @@ class authController extends Controller
             'kode' => $request->kode,
             'role' => $request->role,
             'gender' => $request->gender,
+           'sekolah' => in_array($request->role, ['siswa', 'guru']) ? $request->sekolah : null,
         ]);
         return response()->json(['message' => 'User created successfully'], 201);
     }
     public function login(Request $request)
     {
         $request->validate([
-            'username' => 'required',
+            'kode' => 'required',
             'password' => 'required',
         ]);
-        $user = User::where('username',$request->username)->first();
+        $user = User::where('kode',$request->kode)->first();
 
         
         auth()->login($user);
@@ -51,7 +53,7 @@ class authController extends Controller
             return response() -> json(['message' => 'Unauthorized: Incorrect credentials'],401);
         }
 
-        if($user->username !== $request->username){
+        if($user->kode !== $request->kode){
             return response() -> json(['message' => 'Unauthorized: the username is incorrect'],401);    
         }
 

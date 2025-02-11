@@ -17,9 +17,10 @@ return new class extends Migration
             $table->string('email')->unique();
             // $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->string('kode')->unique();
+            $table->unsignedBigInteger('kode')->unique();
             $table->enum('role',['siswa','guru','admin','perpus']);
             $table->enum('gender',['laki-laki','perempuan']);
+            $table->enum('sekolah',['SD','SMP','SMK'])->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

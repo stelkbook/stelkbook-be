@@ -23,7 +23,8 @@ class User extends Authenticatable
         'password',
         'kode',
         'role',
-        'gender'
+        'gender',
+        'sekolah'
     ];
 
     /**
@@ -43,7 +44,9 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'role' => 'string'
+        'role' => 'string',
+        'gender' => 'string',
+        'kode' => 'integer'
     ];
 
     /**
@@ -52,5 +55,13 @@ class User extends Authenticatable
     public function setPasswordAttribute($value)
     {
         $this->attributes['password'] = Hash::make($value);
+    }
+    public function setSekolahAttribute($value)
+    {
+        if (in_array($this->attributes['role'], ['siswa', 'guru'])) {
+            $this->attributes['sekolah'] = $value;
+        } else {
+            $this->attributes['sekolah'] = null;
+        }
     }
 }

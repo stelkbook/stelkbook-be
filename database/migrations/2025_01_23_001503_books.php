@@ -14,12 +14,19 @@ return new class extends Migration
         Schema::create('books', function (Blueprint $table) {
             $table->id();
             $table->string('judul');
-            $table->enum('kategori',['X','XI','XII','NA']);
+            $table->text('deskripsi')->nullable();
+            $table->enum("sekolah",['SD','SMP','SMK']);
+            $table->enum('kategori',[
+                'I','II','III','IV','V','VI',
+                'VII','VIII','IX',
+                'X','XI','XII',
+                'NA']) -> nullable();
             $table->string('penerbit');
             $table->string('penulis');
+            $table->year('tahun');
             $table->integer('ISBN');
-            $table->string('isi')->nullable();
             $table->string('cover')->nullable();
+            $table->string('isi')->nullable();
             // $table->timestamp('email_verified_at')->nullable();
             // $table->string('password');
             // $table->string('kode')->unique();

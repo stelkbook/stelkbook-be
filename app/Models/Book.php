@@ -12,12 +12,15 @@ class Book extends Model
 
     protected $fillable = [
         'judul',
+        'deskripsi',
+        'sekolah',
         'kategori',
         'penerbit',
         'penulis',
+        'tahun',
         'ISBN',
-        'isi',
         'cover',
+        'isi',
     ];
 
     // Tambahkan atribut tambahan untuk JSON response

@@ -11,19 +11,22 @@ class BookController extends Controller
     public function store(Request $request){
         $validateData = $request->validate([
             'judul' => 'required',
-            'kategori' => 'required|in:X,XI,XII,NA',    
+            'deskripsi' => 'required',
+            'sekolah' => 'required|in:SD,SMP,SMK',
+            'kategori' => 'required|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII,NA',    
             'penerbit' => 'required',
             'penulis' => 'required',
+            'tahun' => 'required|digits:4',
             'ISBN' => 'required',
-            'isi' => 'required|file|mimes:pdf',
             'cover' => 'required|image|mimes:jpeg,png,jpg',
+            'isi' => 'required|file|mimes:pdf',
         ]);
 
-        if ($request->hasFile('isi')) {
-            $validateData['isi'] = $request->file('isi')->store('books', 'public');
-        }
         if ($request->hasFile('cover')) {
             $validateData['cover'] = $request->file('cover')->store('covers', 'public');
+        }
+        if ($request->hasFile('isi')) {
+            $validateData['isi'] = $request->file('isi')->store('books', 'public');
         }
 
         $book = Book::create($validateData);
@@ -45,11 +48,11 @@ class BookController extends Controller
     }
 
     public function destroy(Book $book){
-        if ($book->isi) {
-            Storage::disk('public')->delete($book->isi);
-        }
         if ($book->cover) {
             Storage::disk('public')->delete($book->cover);
+        }
+        if ($book->isi) {
+            Storage::disk('public')->delete($book->isi);
         }
 
         $book->delete();
