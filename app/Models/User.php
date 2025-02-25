@@ -52,10 +52,6 @@ class User extends Authenticatable
     /**
      * Mutator to hash the password automatically.
      */
-    public function setPasswordAttribute($value)
-    {
-        $this->attributes['password'] = Hash::make($value);
-    }
     public function setSekolahAttribute($value)
     {
         if (in_array($this->attributes['role'], ['siswa', 'guru'])) {

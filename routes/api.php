@@ -10,11 +10,11 @@ use App\Http\Controllers\BookController;
 // });
 
 //authControlller
-Route::post('/register',[authController::class,'register']);
-Route::post('/login',[authController::class,'login']);
-Route::middleware('auth:sanctum')-> group(function(){
-    Route::get('/user',[authController::class,'user']);
-    Route::post('/logout',[authController::class,'logout']);
+Route::post('/register', [authController::class, 'register']);
+Route::post('/login', [authController::class, 'login'])->name('login');
+Route::middleware('auth:sanctum')->group(function() {
+    Route::get('/user',[authController::class, 'user']);
+    Route::post('/logout', [authController::class, 'logout']);
 });
 
 //BookController
