@@ -15,12 +15,11 @@ return new class extends Migration
             $table->id();
             $table->string('username')->unique();
             $table->string('email')->unique();
-            // $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->unsignedBigInteger('kode');
-            $table->enum('role',['siswa','guru','admin','perpus']);
-            $table->enum('gender',['laki-laki','perempuan']);
-            $table->enum('sekolah',['SD','SMP','SMK'])->nullable();
+            $table->string('kode')->unique(); // Menggunakan string agar lebih fleksibel
+            $table->enum('role', ['Siswa', 'Guru', 'Admin', 'Perpus']);
+            $table->enum('gender', ['Laki-Laki', 'Perempuan']);
+            $table->enum('sekolah', ['SD', 'SMP', 'SMK'])->nullable(); // Hanya untuk Siswa & Guru
             $table->rememberToken();
             $table->timestamps();
         });

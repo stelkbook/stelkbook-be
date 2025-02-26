@@ -15,10 +15,10 @@ class AuthController extends Controller
             'username' => 'required|unique:users',
             'email' => 'required|email|unique:users',
             'password' => 'required',
-            'kode' => 'required',
-            'role' => 'required|in:siswa,guru,admin,perpus',
-            'gender' => 'required|in:laki-laki,perempuan',
-            'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,siswa,guru'
+            'kode' => 'required|unique:users',
+            'role' => 'required|in:Siswa,Guru,Admin,Perpus',
+            'gender' => 'required|in:Laki-Laki,Perempuan',
+            'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa,Guru'
         ]);
 
         $user = User::create([
@@ -28,7 +28,7 @@ class AuthController extends Controller
             'kode' => $request->kode,
             'role' => $request->role,
             'gender' => $request->gender,
-            'sekolah' => in_array($request->role, ['siswa', 'guru']) ? $request->sekolah : null,
+            'sekolah' => in_array($request->role, ['Siswa', 'Guru']) ? $request->sekolah : null,
         ]);
 
         return response()->json([
@@ -70,4 +70,6 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logged out successfully']);
     }
+    
 }
+

@@ -54,7 +54,7 @@ class User extends Authenticatable
      */
     public function setSekolahAttribute($value)
     {
-        if (in_array($this->attributes['role'], ['siswa', 'guru'])) {
+        if (in_array($this->attributes['role'], ['Siswa', 'Guru'])) {
             $this->attributes['sekolah'] = $value;
         } else {
             $this->attributes['sekolah'] = null;
