@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Facades\Validator;
 class AuthController extends Controller
 {
     public function register(Request $request)
@@ -71,5 +71,39 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out successfully']);
     }
     
+    public function changePassword(Request $request)
+    {
+        // Validasi input
+        $validator = Validator::make($request->all(), [
+            'oldPassword' => 'required',
+            'newPassword' => 'required',
+            'confirmPassword' => 'required|same:newPassword'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Ambil user yang sedang login
+        /** @var \App\Models\User $user **/
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        // Cek apakah password lama sesuai
+        if (!Hash::check($request->oldPassword, $user->password)) {
+            return response()->json(['message' => 'Password lama salah'], 400);
+        }
+
+        // Update password baru
+        $user->password = Hash::make($request->newPassword);
+        $user->save(); // Fix: `save()` bisa digunakan karena User adalah model Eloquent
+
+        return response()->json(['message' => 'Password berhasil diubah'], 200);
+    }
 }
 
