@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
@@ -59,5 +60,26 @@ class User extends Authenticatable
         } else {
             $this->attributes['sekolah'] = null;
         }
+    }
+
+    public function siswas(): HasOne
+    {
+        return $this->hasOne(Siswa::class,'user_id');
+    }
+
+    /**
+     * Relasi ke tabel Guru.
+     */
+    public function gurus(): HasOne
+    {
+        return $this->hasOne(Guru::class,'user_id');
+    }
+
+    /**
+     * Relasi ke tabel Perpus.
+     */
+    public function perpuses(): HasOne
+    {
+        return $this->hasOne(Perpus::class,'user_id');
     }
 }

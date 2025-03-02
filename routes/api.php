@@ -12,9 +12,14 @@ use App\Http\Controllers\BookController;
 Route::post('/register', [authController::class, 'register']);
 Route::post('/login', [authController::class, 'login'])->name('login');
 Route::middleware('auth:sanctum')->group(function() {
-    Route::get('/user',[authController::class, 'user']);
-    Route::post('/logout', [authController::class, 'logout']);
-    Route::post('/change-password', [authController::class, 'changePassword']);
+Route::get('/user',[authController::class, 'user']);
+Route::get('/siswa', [AuthController::class, 'getSiswa']);
+Route::get('/guru', [AuthController::class, 'getGuru']);
+Route::get('/perpus', [AuthController::class, 'getPerpus']);
+Route::post('/logout', [authController::class, 'logout']);
+Route::post('/change-password', [authController::class, 'changePassword']);
+Route::delete('/delete-user', [authController::class, 'deleteUser']);
+Route::post('/update-user', [authController::class, 'updateuser']);
 });
 
 
