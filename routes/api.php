@@ -18,9 +18,12 @@ Route::get('/guru', [AuthController::class, 'getGuru']);
 Route::get('/perpus', [AuthController::class, 'getPerpus']);
 Route::post('/logout', [authController::class, 'logout']);
 Route::post('/change-password', [authController::class, 'changePassword']);
-Route::delete('/delete-user', [authController::class, 'deleteUser']);
-Route::post('/update-user', [authController::class, 'updateuser']);
 });
+Route::delete('/delete/{id}', [authController::class, 'deleteUser']);
+Route::delete('/siswa/{id}', [AuthController::class, 'deleteSiswa']);
+Route::delete('/guru/{id}', [AuthController::class, 'deleteGuru']);
+Route::delete('/perpus/{id}', [AuthController::class, 'deletePerpus']);
+Route::post('/update/{id}', [authController::class, 'updateUser']);
 
 
 //BookController

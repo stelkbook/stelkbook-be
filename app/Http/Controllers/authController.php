@@ -144,7 +144,7 @@ class AuthController extends Controller
         // Validasi input
         $validator = Validator::make($request->all(), [
             'oldPassword' => 'required',
-            'newPassword' => 'required|min:6',
+            'newPassword' => 'required',
             'confirmPassword' => 'required|same:newPassword'
         ]);
     
@@ -187,108 +187,160 @@ class AuthController extends Controller
         return response()->json(['message' => 'Password berhasil diubah'], 200);
     }
 
-    public function deleteUser(Request $request)
-{
-    // Ambil user yang sedang login
-    /** @var \App\Models\User $user **/
-    $user = $request->user();
-
+   // App\Http\Controllers\AuthController.php
+public function deleteUser($id) {
+    // Cari user berdasarkan ID
+    $user = User::find($id);
     if (!$user) {
-        return response()->json(['message' => 'User tidak ditemukan'], 404);
+      return response()->json(['message' => 'User tidak ditemukan'], 404);
     }
-
-    // Hapus data di tabel terkait berdasarkan role
+  
+    // Hapus data terkait berdasarkan role
     switch ($user->role) {
-        case 'Siswa':
-            Siswa::where('user_id', $user->id)->delete();
-            break;
-        case 'Guru':
-            Guru::where('user_id', $user->id)->delete();
-            break;
-        case 'Perpus':
-            Perpus::where('user_id', $user->id)->delete();
-            break;
+      case 'Siswa':
+        Siswa::where('user_id', $user->id)->delete();
+        break;
+      case 'Guru':
+        Guru::where('user_id', $user->id)->delete();
+        break;
+      case 'Perpus':
+        Perpus::where('user_id', $user->id)->delete();
+        break;
     }
-
+  
     // Hapus user
     $user->delete();
-
+  
     return response()->json(['message' => 'User berhasil dihapus'], 200);
-}
+  }
 
-public function updateUser(Request $request)
+  public function deleteSiswa($id)
 {
-    // Validasi input
-    $validator = Validator::make($request->all(), [
-        'username' => 'sometimes|required|unique:users,username,' . $request->user()->id,
-        'email' => 'sometimes|required|email|unique:users,email,' . $request->user()->id,
-        'gender' => 'sometimes|required|in:Laki-Laki,Perempuan',
-        'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa,Guru',
-        'kode' => 'sometimes|required|unique:users,kode,' . $request->user()->id, // Validasi kode unik
-        'password' => 'sometimes|required' // Password baru minimal 6 karakter
-    ]);
-
-    if ($validator->fails()) {
-        return response()->json([
-            'message' => 'Validasi gagal',
-            'errors' => $validator->errors(),
-        ], 422);
+    // Cari siswa berdasarkan ID
+    $siswa = Siswa::find($id);
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa tidak ditemukan'], 404);
     }
 
-    // Ambil user yang sedang login
-    /** @var \App\Models\User $user **/
-    $user = $request->user();
+    // Hapus user terkait
+    User::where('id', $siswa->user_id)->delete();
 
-    if (!$user) {
-        return response()->json(['message' => 'User tidak ditemukan'], 404);
-    }
+    // Hapus siswa
+    $siswa->delete();
 
-    // Jika ada request untuk mengganti password
-    if ($request->has('password')) {
-        // Update password baru di tabel users
-        $user->password = Hash::make($request->password);
-        $user->save();
-    }
-
-    // Jika ada request untuk mengganti kode
-    if ($request->has('kode')) {
-        $user->kode = $request->kode;
-        $user->save();
-
-        // Update kode di tabel terkait berdasarkan role
-        switch ($user->role) {
-            case 'Siswa':
-                Siswa::where('user_id', $user->id)->update(['nis' => $request->kode]);
-                break;
-            case 'Guru':
-                Guru::where('user_id', $user->id)->update(['nip' => $request->kode]);
-                break;
-            case 'Perpus':
-                Perpus::where('user_id', $user->id)->update(['nip' => $request->kode]);
-                break;
-        }
-    }
-
-    // Update data user lainnya
-    $user->update($request->only(['username', 'email', 'gender', 'sekolah']));
-
-    // Update data di tabel terkait berdasarkan role
-    switch ($user->role) {
-        case 'Siswa':
-            Siswa::where('user_id', $user->id)->update($request->only(['username', 'email', 'gender', 'sekolah']));
-            break;
-        case 'Guru':
-            Guru::where('user_id', $user->id)->update($request->only(['username', 'email', 'gender', 'sekolah']));
-            break;
-        case 'Perpus':
-            Perpus::where('user_id', $user->id)->update($request->only(['username', 'email', 'gender']));
-            break;
-    }
-
-    return response()->json([
-        'message' => 'User updated successfully',
-        'user' => $user
-    ], 200);
+    return response()->json(['message' => 'Siswa berhasil dihapus'], 200);
 }
+
+public function deleteGuru($id)
+{
+    // Cari guru berdasarkan ID
+    $guru = Guru::find($id);
+    if (!$guru) {
+        return response()->json(['message' => 'Guru tidak ditemukan'], 404);
+    }
+
+    // Hapus user terkait
+    User::where('id', $guru->user_id)->delete();
+
+    // Hapus guru
+    $guru->delete();
+
+    return response()->json(['message' => 'Guru berhasil dihapus'], 200);
+}
+
+public function deletePerpus($id)
+{
+    // Cari perpus berdasarkan ID
+    $perpus = Perpus::find($id);
+    if (!$perpus) {
+        return response()->json(['message' => 'Perpus tidak ditemukan'], 404);
+    }
+
+    // Hapus user terkait
+    User::where('id', $perpus->user_id)->delete();
+
+    // Hapus perpus
+    $perpus->delete();
+
+    return response()->json(['message' => 'Perpus berhasil dihapus'], 200);
+}
+
+    
+    public function updateUser(Request $request, $id)
+    {
+        // Validasi input
+        $validator = Validator::make($request->all(), [
+            'username' => 'sometimes|unique:users,username,' . $id,
+            'email' => 'sometimes|email|unique:users,email,' . $id,
+            'password' => 'sometimes',
+            'kode' => 'sometimes|unique:users,kode,' . $id,
+            'gender' => 'sometimes|in:Laki-Laki,Perempuan',
+            'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa,Guru'
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+    
+        // Cari user berdasarkan ID
+        $user = User::find($id);
+    
+        if (!$user) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+    
+        // Update data user
+        $user->username = $request->username ?? $user->username;
+        $user->email = $request->email ?? $user->email;
+        $user->gender = $request->gender ?? $user->gender;
+        $user->sekolah = $request->sekolah ?? $user->sekolah;
+    
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+    
+        // Update kode dan tabel terkait jika ada perubahan kode
+        if ($request->filled('kode') && $request->kode !== $user->kode) {
+            $user->kode = $request->kode;
+    
+            switch ($user->role) {
+                case 'Siswa':
+                    Siswa::where('user_id', $user->id)->update(['nis' => $request->kode]);
+                    break;
+                case 'Guru':
+                    Guru::where('user_id', $user->id)->update(['nip' => $request->kode]);
+                    break;
+                case 'Perpus':
+                    Perpus::where('user_id', $user->id)->update(['nip' => $request->kode]);
+                    break;
+            }
+        }
+    
+        // Simpan perubahan
+        $user->save();
+    
+        // Update password di tabel terkait jika password diubah
+        if ($request->filled('password')) {
+            switch ($user->role) {
+                case 'Siswa':
+                    Siswa::where('user_id', $user->id)->update(['password' => Hash::make($request->password)]);
+                    break;
+                case 'Guru':
+                    Guru::where('user_id', $user->id)->update(['password' => Hash::make($request->password)]);
+                    break;
+                case 'Perpus':
+                    Perpus::where('user_id', $user->id)->update(['password' => Hash::make($request->password)]);
+                    break;
+            }
+        }
+    
+        return response()->json([
+            'message' => 'User berhasil diperbarui',
+            'user' => $user
+        ], 200);
+    }
 }
 
