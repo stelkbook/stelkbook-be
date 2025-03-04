@@ -18,8 +18,44 @@ class Siswa extends Model
         'nis',
         'gender',
         'sekolah',
+        'kelas'
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($siswa) {
+            // Ambil data user terkait
+            $user = $siswa->user;
+
+            if ($user) {
+                if (in_array($siswa->kelas, ['I', 'II', 'III', 'IV', 'V', 'VI'])) {
+                    $siswa->sekolah = 'SD';
+                } elseif (in_array($siswa->kelas, ['VII', 'VIII', 'IX'])) {
+                    $siswa->sekolah = 'SMP';
+                } elseif (in_array($siswa->kelas, ['X', 'XI', 'XII'])) {
+                    $siswa->sekolah = 'SMK';
+                }
+            }
+        });
+
+        static::updating(function ($siswa) {
+            // Pastikan logika ini juga berjalan saat data diupdate
+            $user = $siswa->user;
+
+            if ($user) {
+                if (in_array($siswa->kelas, ['I', 'II', 'III', 'IV', 'V', 'VI'])) {
+                    $siswa->sekolah = 'SD';
+                } elseif (in_array($siswa->kelas, ['VII', 'VIII', 'IX'])) {
+                    $siswa->sekolah = 'SMP';
+                } elseif (in_array($siswa->kelas, ['X', 'XI', 'XII'])) {
+                    $siswa->sekolah = 'SMK';
+                }
+            }
+        });
+    }
+    
     // Relasi dengan User
     public function user(): BelongsTo
     {

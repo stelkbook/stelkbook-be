@@ -25,7 +25,8 @@ class User extends Authenticatable
         'kode',
         'role',
         'gender',
-        'sekolah'
+        'sekolah',
+        'kelas'
     ];
 
     /**
@@ -59,6 +60,23 @@ class User extends Authenticatable
             $this->attributes['sekolah'] = $value;
         } else {
             $this->attributes['sekolah'] = null;
+        }
+    }
+
+    public function setKelasAttribute($value)
+    {
+        if ($this->attributes['role'] === 'Siswa') {
+            $this->attributes['kelas'] = $value;
+
+            if (in_array($value, ['I', 'II', 'III', 'IV', 'V', 'VI'])) {
+                $this->attributes['sekolah'] = 'SD';
+            } elseif (in_array($value, ['VII', 'VIII', 'IX'])) {
+                $this->attributes['sekolah'] = 'SMP';
+            } elseif (in_array($value, ['X', 'XI', 'XII'])) {
+                $this->attributes['sekolah'] = 'SMK';
+            }
+        } else {
+            $this->attributes['kelas'] = null;
         }
     }
 

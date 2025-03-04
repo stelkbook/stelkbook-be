@@ -19,12 +19,15 @@ Route::get('/perpus', [AuthController::class, 'getPerpus']);
 Route::post('/logout', [authController::class, 'logout']);
 Route::post('/change-password', [authController::class, 'changePassword']);
 });
-Route::delete('/delete/{id}', [authController::class, 'deleteUser']);
-Route::delete('/siswa/{id}', [AuthController::class, 'deleteSiswa']);
-Route::delete('/guru/{id}', [AuthController::class, 'deleteGuru']);
-Route::delete('/perpus/{id}', [AuthController::class, 'deletePerpus']);
-Route::post('/update/{id}', [authController::class, 'updateUser']);
 
+Route::delete('/delete/{id}', [authController::class, 'deleteUser']);
+Route::delete('/siswa/{id}', [authController::class, 'deleteSiswa']);
+Route::delete('/guru/{id}', [authController::class, 'deleteGuru']);
+Route::delete('/perpus/{id}', [authController::class, 'deletePerpus']);
+Route::post('/update/{id}', [authController::class, 'updateUser']);
+Route::post('/update-siswa/{id}',[authController::class, 'updateSiswa']);
+Route::post('/update-guru/{id}',[authController::class, 'updateGuru']);
+Route::post('/update-perpus/{id}',[authController::class, 'updatePerpus']);
 
 //BookController
 Route::post('/books',[BookController::class, 'store']);

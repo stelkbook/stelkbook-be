@@ -20,6 +20,11 @@ return new class extends Migration
             $table->enum('role', ['Siswa', 'Guru', 'Admin', 'Perpus']);
             $table->enum('gender', ['Laki-Laki', 'Perempuan']);
             $table->enum('sekolah', ['SD', 'SMP', 'SMK'])->nullable(); // Hanya untuk Siswa & Guru
+            $table->enum('kelas', [
+                'I', 'II', 'III', 'IV', 'V', 'VI', // SD
+                'VII', 'VIII', 'IX', // SMP
+                'X', 'XI', 'XII' // SMK
+            ])->nullable(); // Hanya berlaku untuk Siswa
             $table->rememberToken();
             $table->timestamps();
         });

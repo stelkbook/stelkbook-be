@@ -20,6 +20,11 @@ return new class extends Migration
             $table->string('nis')->unique();
             $table->enum('gender', ['Laki-Laki', 'Perempuan']);
             $table->enum('sekolah', ['SD', 'SMP', 'SMK']);
+            $table->enum('kelas', [
+                'I', 'II', 'III', 'IV', 'V', 'VI', // SD
+                'VII', 'VIII', 'IX', // SMP
+                'X', 'XI', 'XII' // SMK
+            ]);
             $table->timestamps();
         });
         
