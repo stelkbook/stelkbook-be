@@ -13,13 +13,16 @@ Route::post('/register', [authController::class, 'register']);
 Route::post('/login', [authController::class, 'login'])->name('login');
 Route::middleware('auth:sanctum')->group(function() {
 Route::get('/user',[authController::class, 'user']);
-Route::get('/siswa', [AuthController::class, 'getSiswa']);
-Route::get('/guru', [AuthController::class, 'getGuru']);
-Route::get('/perpus', [AuthController::class, 'getPerpus']);
+Route::get('/siswa',[authController::class, 'siswa']);
+Route::get('/guru',[authController::class, 'guru']);
+Route::get('/perpus',[authController::class, 'perpus']);
 Route::post('/logout', [authController::class, 'logout']);
 Route::post('/change-password', [authController::class, 'changePassword']);
 });
 
+Route::get('/siswa/{id}', [authController::class, 'getSiswa']);
+Route::get('/guru/{id}', [authController::class, 'getGuru']);
+Route::get('/perpus/{id}', [authController::class, 'getPerpus']);
 Route::delete('/delete/{id}', [authController::class, 'deleteUser']);
 Route::delete('/siswa/{id}', [authController::class, 'deleteSiswa']);
 Route::delete('/guru/{id}', [authController::class, 'deleteGuru']);

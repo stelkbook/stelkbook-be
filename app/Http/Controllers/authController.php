@@ -48,7 +48,7 @@ class AuthController extends Controller
                     'user_id' => $user->id,
                     'username' => $request->username,
                     'email' => $request->email,
-                    'password' => Hash::make($request->password),
+                    'password' => $request->password,
                     'nis' => $request->kode,
                     'gender' => $request->gender,
                     'sekolah' => $request->sekolah,
@@ -60,7 +60,7 @@ class AuthController extends Controller
                     'user_id' => $user->id,
                     'username' => $request->username,
                     'email' => $request->email,
-                    'password' => Hash::make($request->password),
+                    'password' => $request->password,
                     'nip' => $request->kode,
                     'gender' => $request->gender,
                     'sekolah' => $request->sekolah,
@@ -71,7 +71,7 @@ class AuthController extends Controller
                     'user_id' => $user->id,
                     'username' => $request->username,
                     'email' => $request->email,
-                    'password' => Hash::make($request->password),
+                    'password' => $request->password,
                     'nip' => $request->kode,
                     'gender' => $request->gender,
                 ]);
@@ -84,35 +84,33 @@ class AuthController extends Controller
         ], 201);
     }
 
-    public function getSiswa(Request $request)
+    public function getSiswa($id)
     {
-        $user = $request->user();
-        if ($user->role !== 'Admin' && $user->role !== 'Siswa') {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        $siswa = Siswa::find($id);
+        if (!$siswa) {
+            return response()->json(['message' => 'Siswa not found'], 404);
         }
-        $siswa = Siswa::all(); // Ambil semua data siswa untuk admin
         return response()->json($siswa);
     }
     
-    public function getGuru(Request $request)
+    public function getGuru($id)
     {
-        $user = $request->user();
-        if ($user->role !== 'Admin' && $user->role !== 'Guru') {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        $guru = Guru::find($id);
+        if (!$guru) {
+            return response()->json(['message' => 'Guru not found'], 404);
         }
-        $guru = Guru::all(); // Ambil semua data guru untuk admin
         return response()->json($guru);
     }
     
-    public function getPerpus(Request $request)
+    public function getPerpus($id)
     {
-        $user = $request->user();
-        if ($user->role !== 'Admin' && $user->role !== 'Perpus') {
-            return response()->json(['message' => 'Unauthorized'], 403);
+        $perpus = Perpus::find($id);
+        if (!$perpus) {
+            return response()->json(['message' => 'Perpus not found'], 404);
         }
-        $perpus = Perpus::all(); // Ambil semua data perpus untuk admin
         return response()->json($perpus);
     }
+    
 
     public function login(Request $request)
     {
@@ -147,6 +145,41 @@ class AuthController extends Controller
     {
         return response()->json($request->user());
     }
+
+    public function siswa()
+    {
+        $siswa = Siswa::all(); // Mengambil semua data siswa
+        
+        if ($siswa->isEmpty()) {
+            return response()->json(['message' => 'Tidak ada siswa ditemukan'], 404);
+        }
+        
+        return response()->json($siswa);
+    }
+    
+
+public function guru()
+{
+   $guru = Guru::all();
+
+   if ($guru -> isEmpty()){
+    return response()->json(['message' => 'Tidak ada guru ditemukan'],404);
+   }
+
+   return response()->json($guru);
+}
+
+public function perpus()
+{
+    $perpus = Perpus::all();
+
+    if ($perpus -> isEmpty()){
+     return response()->json(['message' => 'Tidak ada guru ditemukan'],404);
+    }
+ 
+    return response()->json($perpus);
+}
+
 
     public function logout(Request $request)
     {
@@ -189,13 +222,13 @@ class AuthController extends Controller
         // Update password di tabel terkait berdasarkan role
         switch ($user->role) {
             case 'Siswa':
-                Siswa::where('user_id', $user->id)->update(['password' => Hash::make($request->newPassword)]);
+                Siswa::where('user_id', $user->id)->update(['password' => ($request->newPassword)]);
                 break;
             case 'Guru':
-                Guru::where('user_id', $user->id)->update(['password' => Hash::make($request->newPassword)]);
+                Guru::where('user_id', $user->id)->update(['password' => ($request->newPassword)]);
                 break;
             case 'Perpus':
-                Perpus::where('user_id', $user->id)->update(['password' => Hash::make($request->newPassword)]);
+                Perpus::where('user_id', $user->id)->update(['password' => ($request->newPassword)]);
                 break;
         }
     
@@ -399,7 +432,7 @@ public function updateSiswa(Request $request, $id)
     $siswa->kelas = $request->kelas ?? $siswa->kelas;
 
     if ($request->filled('password')) {
-        $siswa->password = Hash::make($request->password);
+        $siswa->password = $request->password;
     }
 
     // Simpan perubahan
@@ -416,7 +449,7 @@ public function updateSiswa(Request $request, $id)
         $user->kelas = $siswa->kelas;
 
         if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
+            $user->password =$request->password;
         }
 
         $user->save();
@@ -462,7 +495,7 @@ public function updateGuru(Request $request, $id)
     $guru->sekolah = $request->sekolah ?? $guru->sekolah;
 
     if ($request->filled('password')) {
-        $guru->password = Hash::make($request->password);
+        $guru->password = $request->password;
     }
 
     // Simpan perubahan
@@ -478,7 +511,7 @@ public function updateGuru(Request $request, $id)
         $user->sekolah = $guru->sekolah;
 
         if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
+            $user->password = $request->password;
         }
 
         $user->save();
@@ -521,7 +554,7 @@ public function updatePerpus(Request $request, $id)
     $perpus->gender = $request->gender ?? $perpus->gender;
 
     if ($request->filled('password')) {
-        $perpus->password = Hash::make($request->password);
+        $perpus->password = $request->password;
     }
 
     // Simpan perubahan
@@ -536,7 +569,7 @@ public function updatePerpus(Request $request, $id)
         $user->gender = $perpus->gender;
 
         if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
+            $user->password = $request->password;
         }
 
         $user->save();
