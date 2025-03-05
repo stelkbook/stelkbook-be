@@ -379,13 +379,13 @@ public function updateUser(Request $request, $id)
     if ($request->filled('password')) {
         switch ($user->role) {
             case 'Siswa':
-                Siswa::where('user_id', $user->id)->update(['password' => Hash::make($request->password)]);
+                Siswa::where('user_id', $user->id)->update(['password' => $request->password]);
                 break;
             case 'Guru':
-                Guru::where('user_id', $user->id)->update(['password' => Hash::make($request->password)]);
+                Guru::where('user_id', $user->id)->update(['password' => $request->password]);
                 break;
             case 'Perpus':
-                Perpus::where('user_id', $user->id)->update(['password' => Hash::make($request->password)]);
+                Perpus::where('user_id', $user->id)->update(['password' => $request->password]);
                 break;
         }
     }
