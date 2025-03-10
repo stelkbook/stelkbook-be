@@ -11,6 +11,7 @@ use App\Http\Controllers\BookController;
 //authControlller
 Route::post('/register', [authController::class, 'register']);
 Route::post('/login', [authController::class, 'login'])->name('login');
+
 Route::middleware('auth:sanctum')->group(function() {
 Route::get('/user',[authController::class, 'user']);
 Route::get('/siswa',[authController::class, 'siswa']);
@@ -33,8 +34,19 @@ Route::post('/update-guru/{id}',[authController::class, 'updateGuru']);
 Route::post('/update-perpus/{id}',[authController::class, 'updatePerpus']);
 
 //BookController
-Route::post('/books',[BookController::class, 'store']);
-Route::get('/books/{book}',[BookController::class, 'show']);
-Route::put('/books/{book}', [BookController::class, 'update']);
-Route::delete('/books/{book}',[BookController::class, 'destroy']);
-Route::get('/books', [BookController::class, 'index']); 
+Route::post('/books', [BookController::class, 'store']); // Tambah buku
+Route::get('/books', [BookController::class, 'index']); // Ambil semua buku
+Route::get('/books/{id}', [BookController::class, 'show']); // Ambil buku berdasarkan ID
+Route::post('/books/{id}', [BookController::class, 'update']); // Update buku berdasarkan ID
+Route::delete('/books/{id}', [BookController::class, 'destroy']); // Hapus buku berdasarkan ID
+
+
+Route::get('/books-siswa', [BookController::class, 'getSiswaBooks']);
+Route::get('/books-guru', [BookController::class, 'getGuruBooks']);
+Route::get('/books-perpus', [BookController::class, 'getPerpusBooks']);
+Route::get('/books-non-akademik', [BookController::class, 'getNonAkademikBooks']);
+// 📌 GET Buku Berdasarkan ID
+Route::get('/books/siswa/{id}', [BookController::class, 'getSiswaBookById']);
+Route::get('/books/guru/{id}', [BookController::class, 'getGuruBookById']);
+Route::get('/books/perpus/{id}', [BookController::class, 'getPerpusBookById']);
+Route::get('/books/non_akademik/{id}', [BookController::class, 'getNonAkademikBookById']);

@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::create('books', function (Blueprint $table) {
             $table->id();
-            $table->string('judul');
+            $table->string('judul')->unique();
             $table->text('deskripsi')->nullable();
-            $table->enum("sekolah",['SD','SMP','SMK']);
+            $table->enum("sekolah",['SD','SMP','SMK'])->nullable();
             $table->enum('kategori',[
                 'I','II','III','IV','V','VI',
                 'VII','VIII','IX',
@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('penerbit');
             $table->string('penulis');
             $table->year('tahun');
-            $table->integer('ISBN');
+            $table->integer('ISBN')->unique();
             $table->string('cover')->nullable();
             $table->string('isi')->nullable();
             // $table->timestamp('email_verified_at')->nullable();

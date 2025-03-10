@@ -37,4 +37,24 @@ class Book extends Model
     {
         return $this->cover ? Storage::url($this->cover) : null;
     }
+
+    public function bookSiswas()
+    {
+        return $this->hasMany(BookSiswa::class, 'book_id');
+    }
+    
+    public function bookGurus()
+    {
+        return $this->hasMany(BookGuru::class, 'book_id');
+    }
+    
+    public function bookPerpuses()
+    {
+        return $this->hasMany(BookPerpus::class, 'book_id');
+    }
+    
+    public function bookNonAkademiks()
+    {
+        return $this->hasMany(BookNonAkademik::class, 'book_id');
+    }
 }

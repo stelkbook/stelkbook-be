@@ -430,6 +430,7 @@ public function updateSiswa(Request $request, $id)
     $siswa->gender = $request->gender ?? $siswa->gender;
     $siswa->sekolah = $request->sekolah ?? $siswa->sekolah;
     $siswa->kelas = $request->kelas ?? $siswa->kelas;
+    
 
     if ($request->filled('password')) {
         $siswa->password = $request->password;
@@ -449,7 +450,7 @@ public function updateSiswa(Request $request, $id)
         $user->kelas = $siswa->kelas;
 
         if ($request->filled('password')) {
-            $user->password =$request->password;
+            $user->password = Hash::make($request->password);
         }
 
         $user->save();
@@ -511,7 +512,7 @@ public function updateGuru(Request $request, $id)
         $user->sekolah = $guru->sekolah;
 
         if ($request->filled('password')) {
-            $user->password = $request->password;
+            $user->password = Hash::make($request->password);
         }
 
         $user->save();
@@ -569,7 +570,7 @@ public function updatePerpus(Request $request, $id)
         $user->gender = $perpus->gender;
 
         if ($request->filled('password')) {
-            $user->password = $request->password;
+            $user->password = Hash::make($request->password);
         }
 
         $user->save();
