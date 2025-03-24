@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Siswa extends Model
 {
@@ -26,39 +27,64 @@ class Siswa extends Model
         parent::boot();
 
         static::creating(function ($siswa) {
-            // Ambil data user terkait
-            $user = $siswa->user;
-
-            if ($user) {
-                if (in_array($siswa->kelas, ['I', 'II', 'III', 'IV', 'V', 'VI'])) {
-                    $siswa->sekolah = 'SD';
-                } elseif (in_array($siswa->kelas, ['VII', 'VIII', 'IX'])) {
-                    $siswa->sekolah = 'SMP';
-                } elseif (in_array($siswa->kelas, ['X', 'XI', 'XII'])) {
-                    $siswa->sekolah = 'SMK';
-                }
+            // Set sekolah berdasarkan kelas
+            if (in_array($siswa->kelas, ['I', 'II', 'III', 'IV', 'V', 'VI'])) {
+                $siswa->sekolah = 'SD';
+            } elseif (in_array($siswa->kelas, ['VII', 'VIII', 'IX'])) {
+                $siswa->sekolah = 'SMP';
+            } elseif (in_array($siswa->kelas, ['X', 'XI', 'XII'])) {
+                $siswa->sekolah = 'SMK';
             }
         });
 
         static::updating(function ($siswa) {
-            // Pastikan logika ini juga berjalan saat data diupdate
-            $user = $siswa->user;
-
-            if ($user) {
-                if (in_array($siswa->kelas, ['I', 'II', 'III', 'IV', 'V', 'VI'])) {
-                    $siswa->sekolah = 'SD';
-                } elseif (in_array($siswa->kelas, ['VII', 'VIII', 'IX'])) {
-                    $siswa->sekolah = 'SMP';
-                } elseif (in_array($siswa->kelas, ['X', 'XI', 'XII'])) {
-                    $siswa->sekolah = 'SMK';
-                }
+            // Set sekolah berdasarkan kelas saat diupdate
+            if (in_array($siswa->kelas, ['I', 'II', 'III', 'IV', 'V', 'VI'])) {
+                $siswa->sekolah = 'SD';
+            } elseif (in_array($siswa->kelas, ['VII', 'VIII', 'IX'])) {
+                $siswa->sekolah = 'SMP';
+            } elseif (in_array($siswa->kelas, ['X', 'XI', 'XII'])) {
+                $siswa->sekolah = 'SMK';
             }
         });
     }
-    
+
     // Relasi dengan User
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    // Relasi ke SdSiswa
+    public function sdSiswas(): HasOne
+    {
+        return $this->hasOne(SdSiswa::class, 'user_id', 'user_id');
+    }
+
+    // Relasi ke SmpSiswa
+    public function smpSiswas(): HasOne
+    {
+        return $this->hasOne(SmpSiswa::class, 'user_id', 'user_id');
+    }
+
+    // Relasi ke SmkSiswa
+    public function smkSiswas(): HasOne
+    {
+        return $this->hasOne(SmkSiswa::class, 'user_id', 'user_id');
+    }
+
+    // Method untuk mengambil relasi yang sesuai berdasarkan sekolah
+    public function detailSiswa()
+    {
+        switch ($this->sekolah) {
+            case 'SD':
+                return $this->sdSiswa;
+            case 'SMP':
+                return $this->smpSiswa;
+            case 'SMK':
+                return $this->smkSiswa;
+            default:
+                return null;
+        }
     }
 }

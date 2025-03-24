@@ -6,6 +6,9 @@ use App\Models\User;
 use App\Models\Guru;
 use App\Models\Siswa;
 use App\Models\Perpus;
+use App\Models\SdSiswa;
+use App\Models\SmpSiswa;
+use App\Models\SmkSiswa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -13,38 +16,39 @@ use Illuminate\Support\Facades\Validator;
 class AuthController extends Controller
 {
     public function register(Request $request)
-{
-    $request->validate([
-        'username' => 'required|unique:users,username',
-        'email' => 'required|email|unique:users,email',
-        'password' => 'required',
-        'kode' => 'required|unique:users,kode',
-        'role' => 'required|in:Siswa,Guru,Admin,Perpus',
-        'gender' => 'required|in:Laki-Laki,Perempuan',
-        'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa,Guru',
-        'kelas' => 'nullable|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII|required_if:role,Siswa'
-    ]);
-
-    $user = User::create([
-        'username' => $request->username,
-        'email' => $request->email,
-        'password' => Hash::make($request->password),
-        'kode' => $request->kode,
-        'role' => $request->role,
-        'gender' => $request->gender,
-        'sekolah' => in_array($request->role, ['Siswa', 'Guru']) ? $request->sekolah : null,
-        'kelas' => $request->role === 'Siswa' ? $request->kelas : null,
-    ]);
-
-    // Logika untuk mengatur sekolah berdasarkan kelas
-    if ($request->role === 'Siswa') {
-        $user->kelas = $request->kelas; // Ini akan memicu mutator setKelasAttribute
-        $user->save();
-    }
-
+    {
+        $request->validate([
+            'username' => 'required|unique:users,username',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required',
+            'kode' => 'required|unique:users,kode',
+            'role' => 'required|in:Siswa,Guru,Admin,Perpus',
+            'gender' => 'required|in:Laki-Laki,Perempuan',
+            'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa,Guru',
+            'kelas' => 'nullable|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII|required_if:role,Siswa'
+        ]);
+    
+        $user = User::create([
+            'username' => $request->username,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'kode' => $request->kode,
+            'role' => $request->role,
+            'gender' => $request->gender,
+            'sekolah' => in_array($request->role, ['Siswa', 'Guru']) ? $request->sekolah : null,
+            'kelas' => $request->role === 'Siswa' ? $request->kelas : null,
+        ]);
+    
+        // Logika untuk mengatur sekolah berdasarkan kelas
+        if ($request->role === 'Siswa') {
+            $user->kelas = $request->kelas; // Ini akan memicu mutator setKelasAttribute
+            $user->save();
+        }
+    
         switch ($request->role) {
             case 'Siswa':
-                Siswa::create([
+                // Simpan data ke tabel siswas
+             $siswa =   Siswa::create([
                     'user_id' => $user->id,
                     'username' => $request->username,
                     'email' => $request->email,
@@ -54,6 +58,46 @@ class AuthController extends Controller
                     'sekolah' => $request->sekolah,
                     'kelas' => $request->kelas,
                 ]);
+    
+                // Simpan data ke tabel terkait (sd_siswas, smp_siswas, atau smk_siswas)
+                switch ($request->sekolah) {
+                    case 'SD':
+                        SdSiswa::create([
+                            'user_id' => $user->id,
+                            'siswa_id' => $siswa->id,
+                            'username' => $request->username,
+                            'email' => $request->email,
+                            'password' => $request->password,
+                            'nis' => $request->kode,
+                            'gender' => $request->gender,
+                            'kelas' => $request->kelas,
+                        ]);
+                        break;
+                    case 'SMP':
+                        SmpSiswa::create([
+                            'user_id' => $user->id,
+                            'siswa_id' => $siswa->id,
+                            'username' => $request->username,
+                            'email' => $request->email,
+                            'password' => $request->password,
+                            'nis' => $request->kode,
+                            'gender' => $request->gender,
+                            'kelas' => $request->kelas,
+                        ]);
+                        break;
+                    case 'SMK':
+                        SmkSiswa::create([
+                            'user_id' => $user->id,
+                            'siswa_id' => $siswa->id,
+                            'username' => $request->username,
+                            'email' => $request->email,
+                            'password' => $request->password,
+                            'nis' => $request->kode,
+                            'gender' => $request->gender,
+                            'kelas' => $request->kelas,
+                        ]);
+                        break;
+                }
                 break;
             case 'Guru':
                 Guru::create([
@@ -77,7 +121,7 @@ class AuthController extends Controller
                 ]);
                 break;
         }
-
+    
         return response()->json([
             'message' => 'User created successfully',
             'user' => $user
@@ -92,6 +136,42 @@ class AuthController extends Controller
         }
         return response()->json($siswa);
     }
+
+    public function getSdSiswa($id)
+{
+    // Cari siswa SD berdasarkan ID
+    $siswa = SdSiswa::find($id);
+
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa SD tidak ditemukan'], 404);
+    }
+
+    return response()->json($siswa);
+}
+
+public function getSmpSiswa($id)
+{
+    // Cari siswa SMP berdasarkan ID
+    $siswa = SmpSiswa::find($id);
+
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa SMP tidak ditemukan'], 404);
+    }
+
+    return response()->json($siswa);
+}
+
+public function getSmkSiswa($id)
+{
+    // Cari siswa SMK berdasarkan ID
+    $siswa = SmkSiswa::find($id);
+
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa SMK tidak ditemukan'], 404);
+    }
+
+    return response()->json($siswa);
+}
     
     public function getGuru($id)
     {
@@ -156,6 +236,42 @@ class AuthController extends Controller
         
         return response()->json($siswa);
     }
+
+    public function sdSiswa()
+{
+    // Ambil semua siswa SD
+    $siswas = SdSiswa::all();
+
+    if ($siswas->isEmpty()) {
+        return response()->json(['message' => 'Tidak ada siswa SD ditemukan'], 404);
+    }
+
+    return response()->json($siswas);
+}
+
+public function smpSiswa()
+{
+    // Ambil semua siswa SMP
+    $siswas = SmpSiswa::all();
+
+    if ($siswas->isEmpty()) {
+        return response()->json(['message' => 'Tidak ada siswa SMP ditemukan'], 404);
+    }
+
+    return response()->json($siswas);
+}
+
+public function smkSiswa()
+{
+    // Ambil semua siswa SMK
+    $siswas = SmkSiswa::all();
+
+    if ($siswas->isEmpty()) {
+        return response()->json(['message' => 'Tidak ada siswa SMK ditemukan'], 404);
+    }
+
+    return response()->json($siswas);
+}
     
 
 public function guru()
@@ -215,20 +331,39 @@ public function perpus()
             return response()->json(['message' => 'Password lama salah'], 400);
         }
     
-        // Update password baru
+        // Update password baru di tabel users
         $user->password = Hash::make($request->newPassword);
         $user->save();
     
         // Update password di tabel terkait berdasarkan role
         switch ($user->role) {
             case 'Siswa':
-                Siswa::where('user_id', $user->id)->update(['password' => ($request->newPassword)]);
+                // Update password di tabel siswas
+                Siswa::where('user_id', $user->id)->update(['password' => $request->newPassword]);
+    
+                // Update password di tabel sd_siswas, smp_siswas, atau smk_siswas
+                $siswa = Siswa::where('user_id', $user->id)->first();
+                if ($siswa) {
+                    switch ($siswa->sekolah) {
+                        case 'SD':
+                            SdSiswa::where('siswa_id', $siswa->id)->update(['password' => $request->newPassword]);
+                            break;
+                        case 'SMP':
+                            SmpSiswa::where('siswa_id', $siswa->id)->update(['password' => $request->newPassword]);
+                            break;
+                        case 'SMK':
+                            SmkSiswa::where('siswa_id', $siswa->id)->update(['password' => $request->newPassword]);
+                            break;
+                    }
+                }
                 break;
             case 'Guru':
-                Guru::where('user_id', $user->id)->update(['password' => ($request->newPassword)]);
+                // Update password di tabel gurus
+                Guru::where('user_id', $user->id)->update(['password' => $request->newPassword]);
                 break;
             case 'Perpus':
-                Perpus::where('user_id', $user->id)->update(['password' => ($request->newPassword)]);
+                // Update password di tabel perpuses
+                Perpus::where('user_id', $user->id)->update(['password' => $request->newPassword]);
                 break;
         }
     
@@ -236,38 +371,67 @@ public function perpus()
     }
 
    // App\Http\Controllers\AuthController.php
-public function deleteUser($id) {
+   public function deleteUser($id) {
     // Cari user berdasarkan ID
     $user = User::find($id);
     if (!$user) {
-      return response()->json(['message' => 'User tidak ditemukan'], 404);
+        return response()->json(['message' => 'User tidak ditemukan'], 404);
     }
-  
+
     // Hapus data terkait berdasarkan role
     switch ($user->role) {
-      case 'Siswa':
-        Siswa::where('user_id', $user->id)->delete();
-        break;
-      case 'Guru':
-        Guru::where('user_id', $user->id)->delete();
-        break;
-      case 'Perpus':
-        Perpus::where('user_id', $user->id)->delete();
-        break;
+        case 'Siswa':
+            $siswa = Siswa::where('user_id', $user->id)->first();
+            if ($siswa) {
+                // Hapus data di tabel sd_siswas, smp_siswas, atau smk_siswas
+                switch ($siswa->sekolah) {
+                    case 'SD':
+                        SdSiswa::where('siswa_id', $siswa->id)->delete();
+                        break;
+                    case 'SMP':
+                        SmpSiswa::where('siswa_id', $siswa->id)->delete();
+                        break;
+                    case 'SMK':
+                        SmkSiswa::where('siswa_id', $siswa->id)->delete();
+                        break;
+                }
+                // Hapus data siswa
+                $siswa->delete();
+            }
+            break;
+        case 'Guru':
+            Guru::where('user_id', $user->id)->delete();
+            break;
+        case 'Perpus':
+            Perpus::where('user_id', $user->id)->delete();
+            break;
     }
-  
+
     // Hapus user
     $user->delete();
-  
-    return response()->json(['message' => 'User berhasil dihapus'], 200);
-  }
 
-  public function deleteSiswa($id)
-{
+    return response()->json(['message' => 'User berhasil dihapus'], 200);
+}
+
+public function deleteSiswa($id) {
     // Cari siswa berdasarkan ID
     $siswa = Siswa::find($id);
+
     if (!$siswa) {
         return response()->json(['message' => 'Siswa tidak ditemukan'], 404);
+    }
+
+    // Hapus data di tabel terkait (sd_siswas, smp_siswas, atau smk_siswas)
+    switch ($siswa->sekolah) {
+        case 'SD':
+            SdSiswa::where('siswa_id', $siswa->id)->delete();
+            break;
+        case 'SMP':
+            SmpSiswa::where('siswa_id', $siswa->id)->delete();
+            break;
+        case 'SMK':
+            SmkSiswa::where('siswa_id', $siswa->id)->delete();
+            break;
     }
 
     // Hapus user terkait
@@ -277,6 +441,67 @@ public function deleteUser($id) {
     $siswa->delete();
 
     return response()->json(['message' => 'Siswa berhasil dihapus'], 200);
+}
+
+public function deleteSdSiswa($id) {
+    // Cari siswa SD berdasarkan ID
+    $siswa = SdSiswa::find($id);
+
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa SD tidak ditemukan'], 404);
+    }
+
+    // Hapus data siswa di tabel siswas
+    Siswa::where('id', $siswa->siswa_id)->delete();
+
+    // Hapus user terkait
+    User::where('id', $siswa->user_id)->delete();
+
+    // Hapus siswa SD
+    $siswa->delete();
+
+    return response()->json(['message' => 'Siswa SD berhasil dihapus'], 200);
+}
+
+
+public function deleteSmpSiswa($id) {
+    // Cari siswa SMP berdasarkan ID
+    $siswa = SmpSiswa::find($id);
+
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa SMP tidak ditemukan'], 404);
+    }
+
+    // Hapus data siswa di tabel siswas
+    Siswa::where('id', $siswa->siswa_id)->delete();
+
+    // Hapus user terkait
+    User::where('id', $siswa->user_id)->delete();
+
+    // Hapus siswa SMP
+    $siswa->delete();
+
+    return response()->json(['message' => 'Siswa SMP berhasil dihapus'], 200);
+}
+
+public function deleteSmkSiswa($id) {
+    // Cari siswa SMK berdasarkan ID
+    $siswa = SmkSiswa::find($id);
+
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa SMK tidak ditemukan'], 404);
+    }
+
+    // Hapus data siswa di tabel siswas
+    Siswa::where('id', $siswa->siswa_id)->delete();
+
+    // Hapus user terkait
+    User::where('id', $siswa->user_id)->delete();
+
+    // Hapus siswa SMK
+    $siswa->delete();
+
+    return response()->json(['message' => 'Siswa SMK berhasil dihapus'], 200);
 }
 
 public function deleteGuru($id)
@@ -314,8 +539,7 @@ public function deletePerpus($id)
 }
 
     
-public function updateUser(Request $request, $id)
-{
+public function updateUser(Request $request, $id) {
     // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:users,username,' . $id,
@@ -323,7 +547,7 @@ public function updateUser(Request $request, $id)
         'password' => 'sometimes',
         'kode' => 'sometimes|unique:users,kode,' . $id,
         'gender' => 'sometimes|in:Laki-Laki,Perempuan',
-        'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa,Guru',
+        'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa',
         'kelas' => 'nullable|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII|required_if:role,Siswa'
     ]);
 
@@ -346,10 +570,7 @@ public function updateUser(Request $request, $id)
     $user->email = $request->email ?? $user->email;
     $user->gender = $request->gender ?? $user->gender;
     $user->sekolah = $request->sekolah ?? $user->sekolah;
-
-    if ($request->filled('kelas')) {
-        $user->kelas = $request->kelas; // Ini akan memicu mutator setKelasAttribute
-    }
+    $user->kelas = $request->kelas ?? $user->kelas;
 
     if ($request->filled('password')) {
         $user->password = Hash::make($request->password);
@@ -361,7 +582,24 @@ public function updateUser(Request $request, $id)
 
         switch ($user->role) {
             case 'Siswa':
-                Siswa::where('user_id', $user->id)->update(['nis' => $request->kode]);
+                $siswa = Siswa::where('user_id', $user->id)->first();
+                if ($siswa) {
+                    $siswa->nis = $request->kode;
+                    $siswa->save();
+
+                    // Update tabel sd_siswas, smp_siswas, atau smk_siswas
+                    switch ($siswa->sekolah) {
+                        case 'SD':
+                            SdSiswa::where('siswa_id', $siswa->id)->update(['nis' => $request->kode]);
+                            break;
+                        case 'SMP':
+                            SmpSiswa::where('siswa_id', $siswa->id)->update(['nis' => $request->kode]);
+                            break;
+                        case 'SMK':
+                            SmkSiswa::where('siswa_id', $siswa->id)->update(['nis' => $request->kode]);
+                            break;
+                    }
+                }
                 break;
             case 'Guru':
                 Guru::where('user_id', $user->id)->update(['nip' => $request->kode]);
@@ -375,29 +613,13 @@ public function updateUser(Request $request, $id)
     // Simpan perubahan
     $user->save();
 
-    // Update password di tabel terkait jika password diubah
-    if ($request->filled('password')) {
-        switch ($user->role) {
-            case 'Siswa':
-                Siswa::where('user_id', $user->id)->update(['password' => $request->password]);
-                break;
-            case 'Guru':
-                Guru::where('user_id', $user->id)->update(['password' => $request->password]);
-                break;
-            case 'Perpus':
-                Perpus::where('user_id', $user->id)->update(['password' => $request->password]);
-                break;
-        }
-    }
-
     return response()->json([
         'message' => 'User berhasil diperbarui',
         'user' => $user
     ], 200);
 }
 
-public function updateSiswa(Request $request, $id)
-{
+public function updateSiswa(Request $request, $id) {
     // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:siswas,username,' . $id,
@@ -430,7 +652,6 @@ public function updateSiswa(Request $request, $id)
     $siswa->gender = $request->gender ?? $siswa->gender;
     $siswa->sekolah = $request->sekolah ?? $siswa->sekolah;
     $siswa->kelas = $request->kelas ?? $siswa->kelas;
-    
 
     if ($request->filled('password')) {
         $siswa->password = $request->password;
@@ -454,6 +675,40 @@ public function updateSiswa(Request $request, $id)
         }
 
         $user->save();
+    }
+
+    // Update tabel sd_siswas, smp_siswas, atau smk_siswas
+    switch ($siswa->sekolah) {
+        case 'SD':
+            SdSiswa::where('siswa_id', $siswa->id)->update([
+                'username' => $siswa->username,
+                'email' => $siswa->email,
+                'nis' => $siswa->nis,
+                'gender' => $siswa->gender,
+                'kelas' => $siswa->kelas,
+                'password' => $request->filled('password') ? $request->password : $siswa->passwo
+            ]);
+            break;
+        case 'SMP':
+            SmpSiswa::where('siswa_id', $siswa->id)->update([
+                'username' => $siswa->username,
+                'email' => $siswa->email,
+                'nis' => $siswa->nis,
+                'gender' => $siswa->gender,
+                'kelas' => $siswa->kelas,
+                'password' => $request->filled('password') ? $request->password : $siswa->passwo
+            ]);
+            break;
+        case 'SMK':
+            SmkSiswa::where('siswa_id', $siswa->id)->update([
+                'username' => $siswa->username,
+                'email' => $siswa->email,
+                'nis' => $siswa->nis,
+                'gender' => $siswa->gender,
+                'kelas' => $siswa->kelas,
+                'password' => $request->filled('password') ? $request->password : $siswa->passwo
+            ]);
+            break;
     }
 
     return response()->json([
@@ -579,6 +834,225 @@ public function updatePerpus(Request $request, $id)
     return response()->json([
         'message' => 'Perpus berhasil diperbarui',
         'perpus' => $perpus
+    ], 200);
+}
+
+public function updateSdSiswa(Request $request, $id) {
+    // Validasi input
+    $validator = Validator::make($request->all(), [
+        'username' => 'sometimes|unique:sd_siswas,username,' . $id,
+        'email' => 'sometimes|email|unique:sd_siswas,email,' . $id,
+        'password' => 'sometimes',
+        'nis' => 'sometimes|unique:sd_siswas,nis,' . $id,
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan',
+        'kelas' => 'sometimes|in:I,II,III,IV,V,VI'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'message' => 'Validasi gagal',
+            'errors' => $validator->errors(),
+        ], 422);
+    }
+
+    // Cari siswa SD berdasarkan ID
+    $siswa = SdSiswa::find($id);
+
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa SD tidak ditemukan'], 404);
+    }
+
+    // Update data siswa SD
+    $siswa->username = $request->username ?? $siswa->username;
+    $siswa->email = $request->email ?? $siswa->email;
+    $siswa->nis = $request->nis ?? $siswa->nis;
+    $siswa->gender = $request->gender ?? $siswa->gender;
+    $siswa->kelas = $request->kelas ?? $siswa->kelas;
+
+    if ($request->filled('password')) {
+        $siswa->password = $request->password;
+    }
+
+    // Simpan perubahan
+    $siswa->save();
+
+    // Update data siswa di tabel siswas
+    Siswa::where('id', $siswa->siswa_id)->update([
+        'username' => $siswa->username,
+        'email' => $siswa->email,
+        'nis' => $siswa->nis,
+        'gender' => $siswa->gender,
+        'sekolah' => 'SD',
+        'kelas' => $siswa->kelas,
+        'password' => $request->filled('password') ? $request->password : $siswa->password,
+    ]);
+
+    // Update data user terkait
+    $user = User::find($siswa->user_id);
+    if ($user) {
+        $user->username = $siswa->username;
+        $user->email = $siswa->email;
+        $user->kode = $siswa->nis;
+        $user->gender = $siswa->gender;
+        $user->sekolah = 'SD';
+        $user->kelas = $siswa->kelas;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+    }
+
+    return response()->json([
+        'message' => 'Siswa SD berhasil diperbarui',
+        'siswa' => $siswa
+    ], 200);
+}
+
+public function updateSmpSiswa(Request $request, $id) {
+    // Validasi input
+    $validator = Validator::make($request->all(), [
+        'username' => 'sometimes|unique:smp_siswas,username,' . $id,
+        'email' => 'sometimes|email|unique:smp_siswas,email,' . $id,
+        'password' => 'sometimes',
+        'nis' => 'sometimes|unique:smp_siswas,nis,' . $id,
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan',
+        'kelas' => 'sometimes|in:VII,VIII,IX'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'message' => 'Validasi gagal',
+            'errors' => $validator->errors(),
+        ], 422);
+    }
+
+    // Cari siswa SMP berdasarkan ID
+    $siswa = SmpSiswa::find($id);
+
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa SMP tidak ditemukan'], 404);
+    }
+
+    // Update data siswa SMP
+    $siswa->username = $request->username ?? $siswa->username;
+    $siswa->email = $request->email ?? $siswa->email;
+    $siswa->nis = $request->nis ?? $siswa->nis;
+    $siswa->gender = $request->gender ?? $siswa->gender;
+    $siswa->kelas = $request->kelas ?? $siswa->kelas;
+
+    if ($request->filled('password')) {
+        $siswa->password = $request->password;
+    }
+
+    // Simpan perubahan
+    $siswa->save();
+
+    // Update data siswa di tabel siswas
+    Siswa::where('id', $siswa->siswa_id)->update([
+        'username' => $siswa->username,
+        'email' => $siswa->email,
+        'nis' => $siswa->nis,
+        'gender' => $siswa->gender,
+        'sekolah' => 'SMP',
+        'kelas' => $siswa->kelas,
+        'password' => $request->filled('password') ? $request->password : $siswa->password,
+    ]);
+
+    // Update data user terkait
+    $user = User::find($siswa->user_id);
+    if ($user) {
+        $user->username = $siswa->username;
+        $user->email = $siswa->email;
+        $user->kode = $siswa->nis;
+        $user->gender = $siswa->gender;
+        $user->sekolah = 'SMP';
+        $user->kelas = $siswa->kelas;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+    }
+
+    return response()->json([
+        'message' => 'Siswa SMP berhasil diperbarui',
+        'siswa' => $siswa
+    ], 200);
+}
+
+public function updateSmkSiswa(Request $request, $id) {
+    // Validasi input
+    $validator = Validator::make($request->all(), [
+        'username' => 'sometimes|unique:smk_siswas,username,' . $id,
+        'email' => 'sometimes|email|unique:smk_siswas,email,' . $id,
+        'password' => 'sometimes',
+        'nis' => 'sometimes|unique:smk_siswas,nis,' . $id,
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan',
+        'kelas' => 'sometimes|in:X,XI,XII'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'message' => 'Validasi gagal',
+            'errors' => $validator->errors(),
+        ], 422);
+    }
+
+    // Cari siswa SMK berdasarkan ID
+    $siswa = SmkSiswa::find($id);
+
+    if (!$siswa) {
+        return response()->json(['message' => 'Siswa SMK tidak ditemukan'], 404);
+    }
+
+    // Update data siswa SMK
+    $siswa->username = $request->username ?? $siswa->username;
+    $siswa->email = $request->email ?? $siswa->email;
+    $siswa->nis = $request->nis ?? $siswa->nis;
+    $siswa->gender = $request->gender ?? $siswa->gender;
+    $siswa->kelas = $request->kelas ?? $siswa->kelas;
+
+    if ($request->filled('password')) {
+        $siswa->password = $request->password;
+    }
+
+    // Simpan perubahan
+    $siswa->save();
+
+    // Update data siswa di tabel siswas
+    Siswa::where('id', $siswa->siswa_id)->update([
+        'username' => $siswa->username,
+        'email' => $siswa->email,
+        'nis' => $siswa->nis,
+        'gender' => $siswa->gender,
+        'sekolah' => 'SMK',
+        'kelas' => $siswa->kelas,
+        'password' => $request->filled('password') ? $request->password : $siswa->password,
+    ]);
+
+    // Update data user terkait
+    $user = User::find($siswa->user_id);
+    if ($user) {
+        $user->username = $siswa->username;
+        $user->email = $siswa->email;
+        $user->kode = $siswa->nis;
+        $user->gender = $siswa->gender;
+        $user->sekolah = 'SMK';
+        $user->kelas = $siswa->kelas;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+    }
+
+    return response()->json([
+        'message' => 'Siswa SMK berhasil diperbarui',
+        'siswa' => $siswa
     ], 200);
 }
 }
