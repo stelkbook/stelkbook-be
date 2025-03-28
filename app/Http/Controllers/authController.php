@@ -9,6 +9,9 @@ use App\Models\Perpus;
 use App\Models\SdSiswa;
 use App\Models\SmpSiswa;
 use App\Models\SmkSiswa;
+use App\Models\SdGuru;
+use App\Models\SmpGuru;
+use App\Models\SmkGuru;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -99,17 +102,58 @@ class AuthController extends Controller
                         break;
                 }
                 break;
-            case 'Guru':
-                Guru::create([
-                    'user_id' => $user->id,
-                    'username' => $request->username,
-                    'email' => $request->email,
-                    'password' => $request->password,
-                    'nip' => $request->kode,
-                    'gender' => $request->gender,
-                    'sekolah' => $request->sekolah,
-                ]);
-                break;
+                case 'Guru':
+                    // Simpan data ke tabel gurus
+                    $guru = Guru::create([
+                        'user_id' => $user->id,
+                        'username' => $request->username,
+                        'email' => $request->email,
+                        'password' => $request->password,
+                        'nip' => $request->kode,
+                        'gender' => $request->gender,
+                        'sekolah' => $request->sekolah,
+                    ]);
+            
+                    // Simpan data ke tabel terkait (sd_gurus, smp_gurus, atau smk_gurus)
+                    switch ($request->sekolah) {
+                        case 'SD':
+                            SdGuru::create([
+                                'user_id' => $user->id,
+                                'guru_id' => $guru->id,
+                                'username' => $request->username,
+                                'email' => $request->email,
+                                'password' => $request->password,
+                                'nip' => $request->kode,
+                                'gender' => $request->gender,
+                                'sekolah' => $request->sekolah,
+                            ]);
+                            break;
+                        case 'SMP':
+                            SmpGuru::create([
+                                'user_id' => $user->id,
+                                'guru_id' => $guru->id,
+                                'username' => $request->username,
+                                'email' => $request->email,
+                                'password' => $request->password,
+                                'nip' => $request->kode,
+                                'gender' => $request->gender,
+                                'sekolah' => $request->sekolah,
+                            ]);
+                            break;
+                        case 'SMK':
+                            SmkGuru::create([
+                                'user_id' => $user->id,
+                                'guru_id' => $guru->id,
+                                'username' => $request->username,
+                                'email' => $request->email,
+                                'password' => $request->password,
+                                'nip' => $request->kode,
+                                'gender' => $request->gender,
+                                'sekolah' => $request->sekolah,
+                            ]);
+                            break;
+                    }
+                    break;
             case 'Perpus':
                 Perpus::create([
                     'user_id' => $user->id,
@@ -181,6 +225,42 @@ public function getSmkSiswa($id)
         }
         return response()->json($guru);
     }
+
+    public function getSdGuru($id)
+{
+    // Cari guru SD berdasarkan ID
+    $guru = SdGuru::find($id);
+
+    if (!$guru) {
+        return response()->json(['message' => 'Guru SD tidak ditemukan'], 404);
+    }
+
+    return response()->json($guru);
+}
+
+public function getSmpGuru($id)
+{
+    // Cari guru SMP berdasarkan ID
+    $guru = SmpGuru::find($id);
+
+    if (!$guru) {
+        return response()->json(['message' => 'Guru SMP tidak ditemukan'], 404);
+    }
+
+    return response()->json($guru);
+}
+
+public function getSmkGuru($id)
+{
+    // Cari guru SMK berdasarkan ID
+    $guru = SmkGuru::find($id);
+
+    if (!$guru) {
+        return response()->json(['message' => 'Guru SMK tidak ditemukan'], 404);
+    }
+
+    return response()->json($guru);
+}
     
     public function getPerpus($id)
     {
@@ -285,6 +365,42 @@ public function guru()
    return response()->json($guru);
 }
 
+public function sdGuru()
+{
+    // Ambil semua guru SD
+    $gurus = SdGuru::all();
+
+    if ($gurus->isEmpty()) {
+        return response()->json(['message' => 'Tidak ada guru SD ditemukan'], 404);
+    }
+
+    return response()->json($gurus);
+}
+
+public function smpGuru()
+{
+    // Ambil semua guru SMP
+    $gurus = SmpGuru::all();
+
+    if ($gurus->isEmpty()) {
+        return response()->json(['message' => 'Tidak ada guru SMP ditemukan'], 404);
+    }
+
+    return response()->json($gurus);
+}
+
+public function smkGuru()
+{
+    // Ambil semua guru SMK
+    $gurus = SmkGuru::all();
+
+    if ($gurus->isEmpty()) {
+        return response()->json(['message' => 'Tidak ada guru SMK ditemukan'], 404);
+    }
+
+    return response()->json($gurus);
+}
+
 public function perpus()
 {
     $perpus = Perpus::all();
@@ -360,6 +476,20 @@ public function perpus()
             case 'Guru':
                 // Update password di tabel gurus
                 Guru::where('user_id', $user->id)->update(['password' => $request->newPassword]);
+                $guru = Guru::where('user_id', $user->id)->first();
+                if ($guru) {
+                    switch ($guru->sekolah) {
+                        case 'SD':
+                            SdGuru::where('guru_id', $guru->id)->update(['password' => $request->newPassword]);
+                            break;
+                        case 'SMP':
+                            SmpGuru::where('guru_id', $guru->id)->update(['password' => $request->newPassword]);
+                            break;
+                        case 'SMK':
+                            SmkGuru::where('guru_id', $guru->id)->update(['password' => $request->newPassword]);
+                            break;
+                    }
+                }
                 break;
             case 'Perpus':
                 // Update password di tabel perpuses
@@ -521,6 +651,69 @@ public function deleteGuru($id)
     return response()->json(['message' => 'Guru berhasil dihapus'], 200);
 }
 
+public function deleteSdGuru($id) 
+{
+    // Cari guru SD berdasarkan ID
+    $guru = SdGuru::find($id);
+
+    if (!$guru) {
+        return response()->json(['message' => 'Guru SD tidak ditemukan'], 404);
+    }
+
+    // Hapus data guru di tabel gurus
+    Guru::where('id', $guru->guru_id)->delete();
+
+    // Hapus user terkait
+    User::where('id', $guru->user_id)->delete();
+
+    // Hapus guru SD
+    $guru->delete();
+
+    return response()->json(['message' => 'Guru SD berhasil dihapus'], 200);
+}
+
+public function deleteSmpGuru($id) 
+{
+    // Cari guru SMP berdasarkan ID
+    $guru = SmpGuru::find($id);
+
+    if (!$guru) {
+        return response()->json(['message' => 'Guru SMP tidak ditemukan'], 404);
+    }
+
+    // Hapus data guru di tabel gurus
+    Guru::where('id', $guru->guru_id)->delete();
+
+    // Hapus user terkait
+    User::where('id', $guru->user_id)->delete();
+
+    // Hapus guru SMP
+    $guru->delete();
+
+    return response()->json(['message' => 'Guru SMP berhasil dihapus'], 200);
+}
+
+public function deleteSmkGuru($id) 
+{
+    // Cari guru SMK berdasarkan ID
+    $guru = SmkGuru::find($id);
+
+    if (!$guru) {
+        return response()->json(['message' => 'Guru SMK tidak ditemukan'], 404);
+    }
+
+    // Hapus data guru di tabel gurus
+    Guru::where('id', $guru->guru_id)->delete();
+
+    // Hapus user terkait
+    User::where('id', $guru->user_id)->delete();
+
+    // Hapus guru SMK
+    $guru->delete();
+
+    return response()->json(['message' => 'Guru SMK berhasil dihapus'], 200);
+}
+
 public function deletePerpus($id)
 {
     // Cari perpus berdasarkan ID
@@ -602,7 +795,39 @@ public function updateUser(Request $request, $id) {
                 }
                 break;
             case 'Guru':
-                Guru::where('user_id', $user->id)->update(['nip' => $request->kode]);
+                $guru = Guru::where('user_id', $user->id)->first();
+                if ($guru) {
+                    $guru->nip = $request->kode;
+                    $guru->save();
+
+                    // Update tabel sd_gurus, smp_gurus, atau smk_gurus
+                    switch ($guru->sekolah) {
+                        case 'SD':
+                            SdGuru::where('guru_id', $guru->id)->update([
+                                'nip' => $request->kode,
+                                'username' => $request->username ?? $guru->username,
+                                'email' => $request->email ?? $guru->email,
+                                'gender' => $request->gender ?? $guru->gender
+                            ]);
+                            break;
+                        case 'SMP':
+                            SmpGuru::where('guru_id', $guru->id)->update([
+                                'nip' => $request->kode,
+                                'username' => $request->username ?? $guru->username,
+                                'email' => $request->email ?? $guru->email,
+                                'gender' => $request->gender ?? $guru->gender
+                            ]);
+                            break;
+                        case 'SMK':
+                            SmkGuru::where('guru_id', $guru->id)->update([
+                                'nip' => $request->kode,
+                                'username' => $request->username ?? $guru->username,
+                                'email' => $request->email ?? $guru->email,
+                                'gender' => $request->gender ?? $guru->gender
+                            ]);
+                            break;
+                    }
+                }
                 break;
             case 'Perpus':
                 Perpus::where('user_id', $user->id)->update(['nip' => $request->kode]);
@@ -686,7 +911,7 @@ public function updateSiswa(Request $request, $id) {
                 'nis' => $siswa->nis,
                 'gender' => $siswa->gender,
                 'kelas' => $siswa->kelas,
-                'password' => $request->filled('password') ? $request->password : $siswa->passwo
+                'password' => $request->filled('password') ? $request->password : $siswa->password
             ]);
             break;
         case 'SMP':
@@ -696,7 +921,7 @@ public function updateSiswa(Request $request, $id) {
                 'nis' => $siswa->nis,
                 'gender' => $siswa->gender,
                 'kelas' => $siswa->kelas,
-                'password' => $request->filled('password') ? $request->password : $siswa->passwo
+                'password' => $request->filled('password') ? $request->password : $siswa->password
             ]);
             break;
         case 'SMK':
@@ -706,7 +931,7 @@ public function updateSiswa(Request $request, $id) {
                 'nis' => $siswa->nis,
                 'gender' => $siswa->gender,
                 'kelas' => $siswa->kelas,
-                'password' => $request->filled('password') ? $request->password : $siswa->passwo
+                'password' => $request->filled('password') ? $request->password : $siswa->password
             ]);
             break;
     }
@@ -717,8 +942,7 @@ public function updateSiswa(Request $request, $id) {
     ], 200);
 }
 
-public function updateGuru(Request $request, $id)
-{
+public function updateGuru(Request $request, $id) {
     // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:gurus,username,' . $id,
@@ -754,7 +978,6 @@ public function updateGuru(Request $request, $id)
         $guru->password = $request->password;
     }
 
-    // Simpan perubahan
     $guru->save();
 
     // Update data user terkait
@@ -771,6 +994,30 @@ public function updateGuru(Request $request, $id)
         }
 
         $user->save();
+    }
+
+    // Update data di tabel spesifik sekolah (SD/SMP/SMK)
+    $updateData = [
+        'username' => $guru->username,
+        'email' => $guru->email,
+        'nip' => $guru->nip,
+        'gender' => $guru->gender
+    ];
+
+    if ($request->filled('password')) {
+        $updateData['password'] = $request->password;
+    }
+
+    switch ($guru->sekolah) {
+        case 'SD':
+            SdGuru::where('guru_id', $guru->id)->update($updateData);
+            break;
+        case 'SMP':
+            SmpGuru::where('guru_id', $guru->id)->update($updateData);
+            break;
+        case 'SMK':
+            SmkGuru::where('guru_id', $guru->id)->update($updateData);
+            break;
     }
 
     return response()->json([
@@ -1053,6 +1300,213 @@ public function updateSmkSiswa(Request $request, $id) {
     return response()->json([
         'message' => 'Siswa SMK berhasil diperbarui',
         'siswa' => $siswa
+    ], 200);
+}
+
+public function updateSdGuru(Request $request, $id) {
+    // Validasi input
+    $validator = Validator::make($request->all(), [
+        'username' => 'sometimes|unique:sd_gurus,username,' . $id,
+        'email' => 'sometimes|email|unique:sd_gurus,email,' . $id,
+        'password' => 'sometimes',
+        'nip' => 'sometimes|unique:sd_gurus,nip,' . $id,
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'message' => 'Validasi gagal',
+            'errors' => $validator->errors(),
+        ], 422);
+    }
+
+    // Cari guru SD berdasarkan ID
+    $guru = SdGuru::find($id);
+
+    if (!$guru) {
+        return response()->json(['message' => 'Guru SD tidak ditemukan'], 404);
+    }
+
+    // Update data guru SD
+    $guru->username = $request->username ?? $guru->username;
+    $guru->email = $request->email ?? $guru->email;
+    $guru->nip = $request->nip ?? $guru->nip;
+    $guru->gender = $request->gender ?? $guru->gender;
+
+    if ($request->filled('password')) {
+        $guru->password = $request->password;
+    }
+
+    // Simpan perubahan
+    $guru->save();
+
+    // Update data guru di tabel gurus
+    Guru::where('id', $guru->guru_id)->update([
+        'username' => $guru->username,
+        'email' => $guru->email,
+        'nip' => $guru->nip,
+        'gender' => $guru->gender,
+        'sekolah' => 'SD',
+        'password' => $request->filled('password') ? $request->password : $guru->password,
+    ]);
+
+    // Update data user terkait
+    $user = User::find($guru->user_id);
+    if ($user) {
+        $user->username = $guru->username;
+        $user->email = $guru->email;
+        $user->kode = $guru->nip;
+        $user->gender = $guru->gender;
+        $user->sekolah = 'SD';
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+    }
+
+    return response()->json([
+        'message' => 'Guru SD berhasil diperbarui',
+        'guru' => $guru
+    ], 200);
+}
+
+public function updateSmpGuru(Request $request, $id) {
+    // Validasi input
+    $validator = Validator::make($request->all(), [
+        'username' => 'sometimes|unique:smp_gurus,username,' . $id,
+        'email' => 'sometimes|email|unique:smp_gurus,email,' . $id,
+        'password' => 'sometimes',
+        'nip' => 'sometimes|unique:smp_gurus,nip,' . $id,
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'message' => 'Validasi gagal',
+            'errors' => $validator->errors(),
+        ], 422);
+    }
+
+    // Cari guru SMP berdasarkan ID
+    $guru = SmpGuru::find($id);
+
+    if (!$guru) {
+        return response()->json(['message' => 'Guru SMP tidak ditemukan'], 404);
+    }
+
+    // Update data guru SMP
+    $guru->username = $request->username ?? $guru->username;
+    $guru->email = $request->email ?? $guru->email;
+    $guru->nip = $request->nip ?? $guru->nip;
+    $guru->gender = $request->gender ?? $guru->gender;
+
+    if ($request->filled('password')) {
+        $guru->password = $request->password;
+    }
+
+    // Simpan perubahan
+    $guru->save();
+
+    // Update data guru di tabel gurus
+    Guru::where('id', $guru->guru_id)->update([
+        'username' => $guru->username,
+        'email' => $guru->email,
+        'nip' => $guru->nip,
+        'gender' => $guru->gender,
+        'sekolah' => 'SMP',
+        'password' => $request->filled('password') ? $request->password : $guru->password,
+    ]);
+
+    // Update data user terkait
+    $user = User::find($guru->user_id);
+    if ($user) {
+        $user->username = $guru->username;
+        $user->email = $guru->email;
+        $user->kode = $guru->nip;
+        $user->gender = $guru->gender;
+        $user->sekolah = 'SMP';
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+    }
+
+    return response()->json([
+        'message' => 'Guru SMP berhasil diperbarui',
+        'guru' => $guru
+    ], 200);
+}
+
+public function updateSmkGuru(Request $request, $id) {
+    // Validasi input
+    $validator = Validator::make($request->all(), [
+        'username' => 'sometimes|unique:smk_gurus,username,' . $id,
+        'email' => 'sometimes|email|unique:smk_gurus,email,' . $id,
+        'password' => 'sometimes',
+        'nip' => 'sometimes|unique:smk_gurus,nip,' . $id,
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'message' => 'Validasi gagal',
+            'errors' => $validator->errors(),
+        ], 422);
+    }
+
+    // Cari guru SMK berdasarkan ID
+    $guru = SmkGuru::find($id);
+
+    if (!$guru) {
+        return response()->json(['message' => 'Guru SMK tidak ditemukan'], 404);
+    }
+
+    // Update data guru SMK
+    $guru->username = $request->username ?? $guru->username;
+    $guru->email = $request->email ?? $guru->email;
+    $guru->nip = $request->nip ?? $guru->nip;
+    $guru->gender = $request->gender ?? $guru->gender;
+
+    if ($request->filled('password')) {
+        $guru->password = $request->password;
+    }
+
+    // Simpan perubahan
+    $guru->save();
+
+    // Update data guru di tabel gurus
+    Guru::where('id', $guru->guru_id)->update([
+        'username' => $guru->username,
+        'email' => $guru->email,
+        'nip' => $guru->nip,
+        'gender' => $guru->gender,
+        'sekolah' => 'SMK',
+        'password' => $request->filled('password') ? $request->password : $guru->password,
+    ]);
+
+    // Update data user terkait
+    $user = User::find($guru->user_id);
+    if ($user) {
+        $user->username = $guru->username;
+        $user->email = $guru->email;
+        $user->kode = $guru->nip;
+        $user->gender = $guru->gender;
+        $user->sekolah = 'SMK';
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+    }
+
+    return response()->json([
+        'message' => 'Guru SMK berhasil diperbarui',
+        'guru' => $guru
     ], 200);
 }
 }
