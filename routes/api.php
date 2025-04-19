@@ -4,9 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\authController;
 use App\Http\Controllers\BookController;
-// Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-//     return $request->user();
-// });
+use Illuminate\Support\Facades\DB;
+
 
 //authControlller
 Route::post('/register', [authController::class, 'register']);
@@ -65,14 +64,69 @@ Route::get('/books', [BookController::class, 'index']); // Ambil semua buku
 Route::get('/books/{id}', [BookController::class, 'show']); // Ambil buku berdasarkan ID
 Route::post('/books/{id}', [BookController::class, 'update']); // Update buku berdasarkan ID
 Route::delete('/books/{id}', [BookController::class, 'destroy']); // Hapus buku berdasarkan ID
-
-
-Route::get('/books-siswa', [BookController::class, 'getSiswaBooks']);
-Route::get('/books-guru', [BookController::class, 'getGuruBooks']);
-Route::get('/books-perpus', [BookController::class, 'getPerpusBooks']);
+  
+Route::get('/books-kelas-1', [BookController::class, 'getKelas1Books']);
+Route::get('/books-kelas-2', [BookController::class, 'getKelas2Books']);
+Route::get('/books-kelas-3', [BookController::class, 'getKelas3Books']);
+Route::get('/books-kelas-4', [BookController::class, 'getKelas4Books']);
+Route::get('/books-kelas-5', [BookController::class, 'getKelas5Books']);
+Route::get('/books-kelas-6', [BookController::class, 'getKelas6Books']);   
+Route::get('/books-kelas-7', [BookController::class, 'getKelas7Books']);
+Route::get('/books-kelas-8', [BookController::class, 'getKelas8Books']);
+Route::get('/books-kelas-9', [BookController::class, 'getKelas9Books']);
+Route::get('/books-kelas-10', [BookController::class, 'getKelas10Books']);
+Route::get('/books-kelas-11', [BookController::class, 'getKelas11Books']);
+Route::get('/books-kelas-12', [BookController::class, 'getKelas12Books']);
 Route::get('/books-non-akademik', [BookController::class, 'getNonAkademikBooks']);
+
+Route::get('/books-siswa', [BookController::class, 'getSiswaBooks']); 
+Route::get('/books-guru', [BookController::class, 'getGuruBooks']);
+Route::delete('/books-guru/{id}', [BookController::class, 'deleteGuruBookById']);
+Route::get('/books-perpus', [BookController::class, 'getPerpusBooks']);
+
+Route::post('/books-kelas-1/{id}', [BookController::class, 'updateKelas1Book']);
+Route::post('/books-kelas-2/{id}', [BookController::class, 'updateKelas2Book']);
+Route::post('/books-kelas-3/{id}', [BookController::class, 'updateKelas3Book']);
+Route::post('/books-kelas-4/{id}', [BookController::class, 'updateKelas4Book']);
+Route::post('/books-kelas-5/{id}', [BookController::class, 'updateKelas5Book']);
+Route::post('/books-kelas-6/{id}', [BookController::class, 'updateKelas6Book']);
+Route::post('/books-kelas-7/{id}', [BookController::class, 'updateKelas7Book']);
+Route::post('/books-kelas-8/{id}', [BookController::class, 'updateKelas8Book']);
+Route::post('/books-kelas-9/{id}', [BookController::class, 'updateKelas9Book']);
+Route::post('/books-kelas-10/{id}', [BookController::class, 'updateKelas10Book']);
+Route::post('/books-kelas-11/{id}', [BookController::class, 'updateKelas11Book']);
+Route::post('/books-kelas-12/{id}', [BookController::class, 'updateKelas12Book']);
+Route::post('/books-non-akademik/{id}', [BookController::class, 'updateNonAkademikBook']);
+
+
 // 📌 GET Buku Berdasarkan ID
 Route::get('/books/siswa/{id}', [BookController::class, 'getSiswaBookById']);
+Route::get('books-kelas-1/{id}', [BookController::class, 'getKelas1BookById']);
+Route::get('/books-kelas-2/{id}', [BookController::class, 'getKelas2BookById']);
+Route::get('/books-kelas-3/{id}', [BookController::class, 'getKelas3BookById']);
+Route::get('/books-kelas-4/{id}', [BookController::class, 'getKelas4BookById']);
+Route::get('/books-kelas-5/{id}', [BookController::class, 'getKelas5BookById']);
+Route::get('/books-kelas-6/{id}', [BookController::class, 'getKelas6BookById']);
+Route::get('/books-kelas-7/{id}', [BookController::class, 'getKelas7BookById']);
+Route::get('/books-kelas-8/{id}', [BookController::class, 'getKelas8BookById']);
+Route::get('/books-kelas-9/{id}', [BookController::class, 'getKelas9BookById']);
+Route::get('/books-kelas-10/{id}', [BookController::class, 'getKelas10BookById']);
+Route::get('/books-kelas-11/{id}', [BookController::class, 'getKelas11BookById']);
+Route::get('/books-kelas-12/{id}', [BookController::class, 'getKelas12BookById']);
 Route::get('/books/guru/{id}', [BookController::class, 'getGuruBookById']);
 Route::get('/books-perpus/{id}', [BookController::class, 'getPerpusBookById']);
-Route::get('/books/non_akademik/{id}', [BookController::class, 'getNonAkademikBookById']);
+Route::get('/books/non-akademik/{id}', [BookController::class, 'getNonAkademikBookById']);
+
+Route::delete('/books-kelas-1/{id}', [BookController::class, 'deleteKelas1Book']);
+Route::delete('/books-kelas-2/{id}', [BookController::class, 'deleteKelas2Book']);
+Route::delete('/books-kelas-3/{id}', [BookController::class, 'deleteKelas3Book']);
+Route::delete('/books-kelas-4/{id}', [BookController::class, 'deleteKelas4Book']);
+Route::delete('/books-kelas-5/{id}', [BookController::class, 'deleteKelas5Book']);
+Route::delete('/books-kelas-6/{id}', [BookController::class, 'deleteKelas6Book']);
+Route::delete('/books-kelas-7/{id}', [BookController::class, 'deleteKelas7Book']);
+Route::delete('/books-kelas-8/{id}', [BookController::class, 'deleteKelas8Book']);
+Route::delete('/books-kelas-9/{id}', [BookController::class, 'deleteKelas9Book']);
+Route::delete('/books-kelas-10/{id}', [BookController::class, 'deleteKelas10Book']);
+Route::delete('/books-kelas-11/{id}', [BookController::class, 'deleteKelas11Book']);
+Route::delete('/books-kelas-12/{id}', [BookController::class, 'deleteKelas12Book']);
+Route::delete('/books-non-akademik/{id}', [BookController::class, 'deleteNonAkademikBook']);
