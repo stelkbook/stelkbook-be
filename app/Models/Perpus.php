@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
+use Illuminate\Support\Facades\Storage;
 class Perpus extends Model
 {
     use HasFactory;
@@ -16,8 +16,17 @@ class Perpus extends Model
         'email',
         'password',
         'nip',
-        'gender'
+        'gender',
+        'avatar'
     ];
+
+    protected $appends = ['avatar_url'];
+
+
+    public function getAvatarUrlAttribute()
+    {
+        return $this->avatar ? Storage::url($this->avatar) : null;
+    }
 
     // Relasi dengan User
     public function user(): BelongsTo

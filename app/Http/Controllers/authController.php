@@ -16,94 +16,147 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 class AuthController extends Controller
 {
-    public function register(Request $request)
-    {
-        $request->validate([
-            'username' => 'required|unique:users,username',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required',
-            'kode' => 'required|unique:users,kode',
-            'role' => 'required|in:Siswa,Guru,Admin,Perpus',
-            'gender' => 'required|in:Laki-Laki,Perempuan',
-            'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa,Guru',
-            'kelas' => 'nullable|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII|required_if:role,Siswa'
-        ]);
-    
-        $user = User::create([
-            'username' => $request->username,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'kode' => $request->kode,
-            'role' => $request->role,
-            'gender' => $request->gender,
-            'sekolah' => in_array($request->role, ['Siswa', 'Guru']) ? $request->sekolah : null,
-            'kelas' => $request->role === 'Siswa' ? $request->kelas : null,
-        ]);
-    
-        // Logika untuk mengatur sekolah berdasarkan kelas
-        if ($request->role === 'Siswa') {
-            $user->kelas = $request->kelas; // Ini akan memicu mutator setKelasAttribute
-            $user->save();
-        }
-    
-        switch ($request->role) {
+
+    private function generateAvatarName($username, $extension) {
+        // Bersihkan username dari karakter khusus
+        $cleanUsername = preg_replace('/[^A-Za-z0-9]/', '', $username);
+        return 'avatar_' . $cleanUsername . '_' . uniqid() . '.' . $extension;
+    }
+
+    private function updateAvatarInAllTables($userId, $role, $avatarPath) {
+        // Update berdasarkan role user
+        switch ($role) {
             case 'Siswa':
-                // Simpan data ke tabel siswas
-             $siswa =   Siswa::create([
-                    'user_id' => $user->id,
-                    'username' => $request->username,
-                    'email' => $request->email,
-                    'password' => $request->password,
-                    'nis' => $request->kode,
-                    'gender' => $request->gender,
-                    'sekolah' => $request->sekolah,
-                    'kelas' => $request->kelas,
-                ]);
-    
-                // Simpan data ke tabel terkait (sd_siswas, smp_siswas, atau smk_siswas)
-                switch ($request->sekolah) {
-                    case 'SD':
-                        SdSiswa::create([
-                            'user_id' => $user->id,
-                            'siswa_id' => $siswa->id,
-                            'username' => $request->username,
-                            'email' => $request->email,
-                            'password' => $request->password,
-                            'nis' => $request->kode,
-                            'gender' => $request->gender,
-                            'kelas' => $request->kelas,
-                        ]);
-                        break;
-                    case 'SMP':
-                        SmpSiswa::create([
-                            'user_id' => $user->id,
-                            'siswa_id' => $siswa->id,
-                            'username' => $request->username,
-                            'email' => $request->email,
-                            'password' => $request->password,
-                            'nis' => $request->kode,
-                            'gender' => $request->gender,
-                            'kelas' => $request->kelas,
-                        ]);
-                        break;
-                    case 'SMK':
-                        SmkSiswa::create([
-                            'user_id' => $user->id,
-                            'siswa_id' => $siswa->id,
-                            'username' => $request->username,
-                            'email' => $request->email,
-                            'password' => $request->password,
-                            'nis' => $request->kode,
-                            'gender' => $request->gender,
-                            'kelas' => $request->kelas,
-                        ]);
-                        break;
+                Siswa::where('user_id', $userId)->update(['avatar' => $avatarPath]);
+                $siswa = Siswa::where('user_id', $userId)->first();
+                if ($siswa) {
+                    switch ($siswa->sekolah) {
+                        case 'SD': SdSiswa::where('siswa_id', $siswa->id)->update(['avatar' => $avatarPath]); break;
+                        case 'SMP': SmpSiswa::where('siswa_id', $siswa->id)->update(['avatar' => $avatarPath]); break;
+                        case 'SMK': SmkSiswa::where('siswa_id', $siswa->id)->update(['avatar' => $avatarPath]); break;
+                    }
                 }
                 break;
+                
+            case 'Guru':
+                Guru::where('user_id', $userId)->update(['avatar' => $avatarPath]);
+                $guru = Guru::where('user_id', $userId)->first();
+                if ($guru) {
+                    switch ($guru->sekolah) {
+                        case 'SD': SdGuru::where('guru_id', $guru->id)->update(['avatar' => $avatarPath]); break;
+                        case 'SMP': SmpGuru::where('siswa_id', $guru->id)->update(['avatar' => $avatarPath]); break;
+                        case 'SMK': SmkGuru::where('siswa_id', $guru->id)->update(['avatar' => $avatarPath]); break;
+                    }
+                }
+                break;
+                
+            case 'Perpus':
+                Perpus::where('user_id', $userId)->update(['avatar' => $avatarPath]);
+                break;
+        }
+    }
+
+        public function register(Request $request)
+        {
+            $request->validate([
+                'username' => 'required|unique:users,username',
+                'email' => 'required|email|unique:users,email',
+                'password' => 'required',
+                'kode' => 'required|unique:users,kode',
+                'role' => 'required|in:Siswa,Guru,Admin,Perpus',
+                'gender' => 'required|in:Laki-Laki,Perempuan',
+                'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa,Guru',
+                'kelas' => 'nullable|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII|required_if:role,Siswa',
+                'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif'
+            ]);
+
+            // Handle avatar upload
+    $avatarPath = null;
+    if ($request->hasFile('avatar')) {
+        $avatarFile = $request->file('avatar');
+    $avatarName = time() . '_' . $avatarFile->getClientOriginalName(); // tambahkan timestamp biar unik
+    $avatarPath = $avatarFile->storeAs('avatars', $avatarName, 'public');
+    }
+
+
+            $user = User::create([
+                'username' => $request->username,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'kode' => $request->kode,
+                'role' => $request->role,
+                'gender' => $request->gender,
+                'sekolah' => in_array($request->role, ['Siswa', 'Guru']) ? $request->sekolah : null,
+                'kelas' => $request->role === 'Siswa' ? $request->kelas : null,
+                'avatar' => $avatarPath
+            ]);
+
+            if ($request->role === 'Siswa') {
+                $user->kelas = $request->kelas;
+                $user->save();
+            }
+
+            switch ($request->role) {
+                case 'Siswa':
+                    $siswa = Siswa::create([
+                        'user_id' => $user->id,
+                        'username' => $request->username,
+                        'email' => $request->email,
+                        'password' => $request->password,
+                        'nis' => $request->kode,
+                        'gender' => $request->gender,
+                        'sekolah' => $request->sekolah,
+                        'kelas' => $request->kelas,
+                        'avatar' => $avatarPath
+                    ]);
+
+                    switch ($request->sekolah) {
+                        case 'SD':
+                            SdSiswa::create([
+                                'user_id' => $user->id,
+                                'siswa_id' => $siswa->id,
+                                'username' => $request->username,
+                                'email' => $request->email,
+                                'password' => $request->password,
+                                'nis' => $request->kode,
+                                'gender' => $request->gender,
+                                'kelas' => $request->kelas,
+                                'avatar' => $avatarPath
+                            ]);
+                            break;
+                        case 'SMP':
+                            SmpSiswa::create([
+                                'user_id' => $user->id,
+                                'siswa_id' => $siswa->id,
+                                'username' => $request->username,
+                                'email' => $request->email,
+                                'password' => $request->password,
+                                'nis' => $request->kode,
+                                'gender' => $request->gender,
+                                'kelas' => $request->kelas,
+                                'avatar' => $avatarPath
+                            ]);
+                            break;
+                        case 'SMK':
+                            SmkSiswa::create([
+                                'user_id' => $user->id,
+                                'siswa_id' => $siswa->id,
+                                'username' => $request->username,
+                                'email' => $request->email,
+                                'password' => $request->password,
+                                'nis' => $request->kode,
+                                'gender' => $request->gender,
+                                'kelas' => $request->kelas,
+                                'avatar' => $avatarPath
+                            ]);
+                            break;
+                    }
+                    break;
+                    
                 case 'Guru':
-                    // Simpan data ke tabel gurus
                     $guru = Guru::create([
                         'user_id' => $user->id,
                         'username' => $request->username,
@@ -112,9 +165,9 @@ class AuthController extends Controller
                         'nip' => $request->kode,
                         'gender' => $request->gender,
                         'sekolah' => $request->sekolah,
+                        'avatar' => $avatarPath
                     ]);
-            
-                    // Simpan data ke tabel terkait (sd_gurus, smp_gurus, atau smk_gurus)
+
                     switch ($request->sekolah) {
                         case 'SD':
                             SdGuru::create([
@@ -126,6 +179,7 @@ class AuthController extends Controller
                                 'nip' => $request->kode,
                                 'gender' => $request->gender,
                                 'sekolah' => $request->sekolah,
+                                'avatar' => $avatarPath
                             ]);
                             break;
                         case 'SMP':
@@ -138,6 +192,7 @@ class AuthController extends Controller
                                 'nip' => $request->kode,
                                 'gender' => $request->gender,
                                 'sekolah' => $request->sekolah,
+                                'avatar' => $avatarPath
                             ]);
                             break;
                         case 'SMK':
@@ -150,27 +205,32 @@ class AuthController extends Controller
                                 'nip' => $request->kode,
                                 'gender' => $request->gender,
                                 'sekolah' => $request->sekolah,
+                                'avatar' => $avatarPath
                             ]);
                             break;
                     }
                     break;
-            case 'Perpus':
-                Perpus::create([
-                    'user_id' => $user->id,
-                    'username' => $request->username,
-                    'email' => $request->email,
-                    'password' => $request->password,
-                    'nip' => $request->kode,
-                    'gender' => $request->gender,
-                ]);
-                break;
+                    
+                case 'Perpus':
+                    Perpus::create([
+                        'user_id' => $user->id,
+                        'username' => $request->username,
+                        'email' => $request->email,
+                        'password' => $request->password,
+                        'nip' => $request->kode,
+                        'gender' => $request->gender,
+                        'avatar' => $avatarPath
+                    ]);
+                    break;
+            }
+
+            return response()->json([
+                'message' => 'User created successfully',
+                'user' => $user
+            ], 201);
         }
+
     
-        return response()->json([
-            'message' => 'User created successfully',
-            'user' => $user
-        ], 201);
-    }
 
     public function getSiswa($id)
     {
@@ -502,230 +562,413 @@ public function perpus()
 
    // App\Http\Controllers\AuthController.php
    public function deleteUser($id) {
-    // Cari user berdasarkan ID
     $user = User::find($id);
     if (!$user) {
         return response()->json(['message' => 'User tidak ditemukan'], 404);
     }
 
-    // Hapus data terkait berdasarkan role
+    // Delete user avatar if exists
+    if ($user->avatar) {
+        Storage::disk('public')->delete($user->avatar);
+    }
+
     switch ($user->role) {
         case 'Siswa':
             $siswa = Siswa::where('user_id', $user->id)->first();
             if ($siswa) {
-                // Hapus data di tabel sd_siswas, smp_siswas, atau smk_siswas
+                // Delete siswa avatar if exists
+                if ($siswa->avatar) {
+                    Storage::disk('public')->delete($siswa->avatar);
+                }
+
+                // Delete school-specific siswa data and avatar
                 switch ($siswa->sekolah) {
                     case 'SD':
+                        $sdSiswa = SdSiswa::where('siswa_id', $siswa->id)->first();
+                        if ($sdSiswa && $sdSiswa->avatar) {
+                            Storage::disk('public')->delete($sdSiswa->avatar);
+                        }
                         SdSiswa::where('siswa_id', $siswa->id)->delete();
                         break;
                     case 'SMP':
+                        $smpSiswa = SmpSiswa::where('siswa_id', $siswa->id)->first();
+                        if ($smpSiswa && $smpSiswa->avatar) {
+                            Storage::disk('public')->delete($smpSiswa->avatar);
+                        }
                         SmpSiswa::where('siswa_id', $siswa->id)->delete();
                         break;
                     case 'SMK':
+                        $smkSiswa = SmkSiswa::where('siswa_id', $siswa->id)->first();
+                        if ($smkSiswa && $smkSiswa->avatar) {
+                            Storage::disk('public')->delete($smkSiswa->avatar);
+                        }
                         SmkSiswa::where('siswa_id', $siswa->id)->delete();
                         break;
                 }
-                // Hapus data siswa
                 $siswa->delete();
             }
             break;
         case 'Guru':
-            Guru::where('user_id', $user->id)->delete();
+            $guru = Guru::where('user_id', $user->id)->first();
+            if ($guru) {
+                // Delete guru avatar if exists
+                if ($guru->avatar) {
+                    Storage::disk('public')->delete($guru->avatar);
+                }
+
+                // Delete school-specific guru data and avatar
+                switch ($guru->sekolah) {
+                    case 'SD':
+                        $sdGuru = SdGuru::where('guru_id', $guru->id)->first();
+                        if ($sdGuru && $sdGuru->avatar) {
+                            Storage::disk('public')->delete($sdGuru->avatar);
+                        }
+                        SdGuru::where('guru_id', $guru->id)->delete();
+                        break;
+                    case 'SMP':
+                        $smpGuru = SmpGuru::where('guru_id', $guru->id)->first();
+                        if ($smpGuru && $smpGuru->avatar) {
+                            Storage::disk('public')->delete($smpGuru->avatar);
+                        }
+                        SmpGuru::where('guru_id', $guru->id)->delete();
+                        break;
+                    case 'SMK':
+                        $smkGuru = SmkGuru::where('guru_id', $guru->id)->first();
+                        if ($smkGuru && $smkGuru->avatar) {
+                            Storage::disk('public')->delete($smkGuru->avatar);
+                        }
+                        SmkGuru::where('guru_id', $guru->id)->delete();
+                        break;
+                }
+                $guru->delete();
+            }
             break;
         case 'Perpus':
+            $perpus = Perpus::where('user_id', $user->id)->first();
+            if ($perpus && $perpus->avatar) {
+                Storage::disk('public')->delete($perpus->avatar);
+            }
             Perpus::where('user_id', $user->id)->delete();
             break;
     }
 
-    // Hapus user
     $user->delete();
 
     return response()->json(['message' => 'User berhasil dihapus'], 200);
 }
 
 public function deleteSiswa($id) {
-    // Cari siswa berdasarkan ID
     $siswa = Siswa::find($id);
-
     if (!$siswa) {
         return response()->json(['message' => 'Siswa tidak ditemukan'], 404);
     }
 
-    // Hapus data di tabel terkait (sd_siswas, smp_siswas, atau smk_siswas)
+    // Delete avatar from storage if exists
+    if ($siswa->avatar) {
+        Storage::disk('public')->delete($siswa->avatar);
+    }
+
+    // Delete school-specific data and avatar
     switch ($siswa->sekolah) {
         case 'SD':
+            $sdSiswa = SdSiswa::where('siswa_id', $siswa->id)->first();
+            if ($sdSiswa && $sdSiswa->avatar) {
+                Storage::disk('public')->delete($sdSiswa->avatar);
+            }
             SdSiswa::where('siswa_id', $siswa->id)->delete();
             break;
         case 'SMP':
+            $smpSiswa = SmpSiswa::where('siswa_id', $siswa->id)->first();
+            if ($smpSiswa && $smpSiswa->avatar) {
+                Storage::disk('public')->delete($smpSiswa->avatar);
+            }
             SmpSiswa::where('siswa_id', $siswa->id)->delete();
             break;
         case 'SMK':
+            $smkSiswa = SmkSiswa::where('siswa_id', $siswa->id)->first();
+            if ($smkSiswa && $smkSiswa->avatar) {
+                Storage::disk('public')->delete($smkSiswa->avatar);
+            }
             SmkSiswa::where('siswa_id', $siswa->id)->delete();
             break;
     }
 
-    // Hapus user terkait
-    User::where('id', $siswa->user_id)->delete();
+    // Delete user and avatar
+    $user = User::find($siswa->user_id);
+    if ($user) {
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->delete();
+    }
 
-    // Hapus siswa
     $siswa->delete();
 
     return response()->json(['message' => 'Siswa berhasil dihapus'], 200);
 }
 
 public function deleteSdSiswa($id) {
-    // Cari siswa SD berdasarkan ID
     $siswa = SdSiswa::find($id);
-
     if (!$siswa) {
         return response()->json(['message' => 'Siswa SD tidak ditemukan'], 404);
     }
 
-    // Hapus data siswa di tabel siswas
-    Siswa::where('id', $siswa->siswa_id)->delete();
+    // Delete avatar from storage if exists
+    if ($siswa->avatar) {
+        Storage::disk('public')->delete($siswa->avatar);
+    }
 
-    // Hapus user terkait
-    User::where('id', $siswa->user_id)->delete();
+    // Delete main siswa record and avatar
+    $mainSiswa = Siswa::find($siswa->siswa_id);
+    if ($mainSiswa) {
+        if ($mainSiswa->avatar) {
+            Storage::disk('public')->delete($mainSiswa->avatar);
+        }
+        $mainSiswa->delete();
+    }
 
-    // Hapus siswa SD
+    // Delete user and avatar
+    $user = User::find($siswa->user_id);
+    if ($user) {
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->delete();
+    }
+
     $siswa->delete();
 
     return response()->json(['message' => 'Siswa SD berhasil dihapus'], 200);
 }
 
-
 public function deleteSmpSiswa($id) {
-    // Cari siswa SMP berdasarkan ID
     $siswa = SmpSiswa::find($id);
-
     if (!$siswa) {
         return response()->json(['message' => 'Siswa SMP tidak ditemukan'], 404);
     }
 
-    // Hapus data siswa di tabel siswas
-    Siswa::where('id', $siswa->siswa_id)->delete();
+    if ($siswa->avatar) {
+        Storage::disk('public')->delete($siswa->avatar);
+    }
 
-    // Hapus user terkait
-    User::where('id', $siswa->user_id)->delete();
+    $mainSiswa = Siswa::find($siswa->siswa_id);
+    if ($mainSiswa) {
+        if ($mainSiswa->avatar) {
+            Storage::disk('public')->delete($mainSiswa->avatar);
+        }
+        $mainSiswa->delete();
+    }
 
-    // Hapus siswa SMP
+    $user = User::find($siswa->user_id);
+    if ($user) {
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->delete();
+    }
+
     $siswa->delete();
 
     return response()->json(['message' => 'Siswa SMP berhasil dihapus'], 200);
 }
 
 public function deleteSmkSiswa($id) {
-    // Cari siswa SMK berdasarkan ID
     $siswa = SmkSiswa::find($id);
-
     if (!$siswa) {
         return response()->json(['message' => 'Siswa SMK tidak ditemukan'], 404);
     }
 
-    // Hapus data siswa di tabel siswas
-    Siswa::where('id', $siswa->siswa_id)->delete();
+    if ($siswa->avatar) {
+        Storage::disk('public')->delete($siswa->avatar);
+    }
 
-    // Hapus user terkait
-    User::where('id', $siswa->user_id)->delete();
+    $mainSiswa = Siswa::find($siswa->siswa_id);
+    if ($mainSiswa) {
+        if ($mainSiswa->avatar) {
+            Storage::disk('public')->delete($mainSiswa->avatar);
+        }
+        $mainSiswa->delete();
+    }
 
-    // Hapus siswa SMK
+    $user = User::find($siswa->user_id);
+    if ($user) {
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->delete();
+    }
+
     $siswa->delete();
 
     return response()->json(['message' => 'Siswa SMK berhasil dihapus'], 200);
 }
 
-public function deleteGuru($id)
-{
-    // Cari guru berdasarkan ID
+public function deleteGuru($id) {
     $guru = Guru::find($id);
     if (!$guru) {
         return response()->json(['message' => 'Guru tidak ditemukan'], 404);
     }
 
-    // Hapus user terkait
-    User::where('id', $guru->user_id)->delete();
+    // Delete guru avatar if exists
+    if ($guru->avatar) {
+        Storage::disk('public')->delete($guru->avatar);
+    }
 
-    // Hapus guru
+    // Delete school-specific guru data and avatar
+    switch ($guru->sekolah) {
+        case 'SD':
+            $sdGuru = SdGuru::where('guru_id', $guru->id)->first();
+            if ($sdGuru && $sdGuru->avatar) {
+                Storage::disk('public')->delete($sdGuru->avatar);
+            }
+            SdGuru::where('guru_id', $guru->id)->delete();
+            break;
+        case 'SMP':
+            $smpGuru = SmpGuru::where('guru_id', $guru->id)->first();
+            if ($smpGuru && $smpGuru->avatar) {
+                Storage::disk('public')->delete($smpGuru->avatar);
+            }
+            SmpGuru::where('guru_id', $guru->id)->delete();
+            break;
+        case 'SMK':
+            $smkGuru = SmkGuru::where('guru_id', $guru->id)->first();
+            if ($smkGuru && $smkGuru->avatar) {
+                Storage::disk('public')->delete($smkGuru->avatar);
+            }
+            SmkGuru::where('guru_id', $guru->id)->delete();
+            break;
+    }
+
+    // Delete user and avatar
+    $user = User::find($guru->user_id);
+    if ($user) {
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->delete();
+    }
+
     $guru->delete();
 
     return response()->json(['message' => 'Guru berhasil dihapus'], 200);
 }
 
-public function deleteSdGuru($id) 
-{
-    // Cari guru SD berdasarkan ID
+public function deleteSdGuru($id) {
     $guru = SdGuru::find($id);
-
     if (!$guru) {
         return response()->json(['message' => 'Guru SD tidak ditemukan'], 404);
     }
 
-    // Hapus data guru di tabel gurus
-    Guru::where('id', $guru->guru_id)->delete();
+    // Delete avatar if exists
+    if ($guru->avatar) {
+        Storage::disk('public')->delete($guru->avatar);
+    }
 
-    // Hapus user terkait
-    User::where('id', $guru->user_id)->delete();
+    // Delete main guru record and avatar
+    $mainGuru = Guru::find($guru->guru_id);
+    if ($mainGuru) {
+        if ($mainGuru->avatar) {
+            Storage::disk('public')->delete($mainGuru->avatar);
+        }
+        $mainGuru->delete();
+    }
 
-    // Hapus guru SD
+    // Delete user and avatar
+    $user = User::find($guru->user_id);
+    if ($user) {
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->delete();
+    }
+
     $guru->delete();
 
     return response()->json(['message' => 'Guru SD berhasil dihapus'], 200);
 }
 
-public function deleteSmpGuru($id) 
-{
-    // Cari guru SMP berdasarkan ID
+public function deleteSmpGuru($id) {
     $guru = SmpGuru::find($id);
-
     if (!$guru) {
         return response()->json(['message' => 'Guru SMP tidak ditemukan'], 404);
     }
 
-    // Hapus data guru di tabel gurus
-    Guru::where('id', $guru->guru_id)->delete();
+    if ($guru->avatar) {
+        Storage::disk('public')->delete($guru->avatar);
+    }
 
-    // Hapus user terkait
-    User::where('id', $guru->user_id)->delete();
+    $mainGuru = Guru::find($guru->guru_id);
+    if ($mainGuru) {
+        if ($mainGuru->avatar) {
+            Storage::disk('public')->delete($mainGuru->avatar);
+        }
+        $mainGuru->delete();
+    }
 
-    // Hapus guru SMP
+    $user = User::find($guru->user_id);
+    if ($user) {
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->delete();
+    }
+
     $guru->delete();
 
     return response()->json(['message' => 'Guru SMP berhasil dihapus'], 200);
 }
 
-public function deleteSmkGuru($id) 
-{
-    // Cari guru SMK berdasarkan ID
+public function deleteSmkGuru($id) {
     $guru = SmkGuru::find($id);
-
     if (!$guru) {
         return response()->json(['message' => 'Guru SMK tidak ditemukan'], 404);
     }
 
-    // Hapus data guru di tabel gurus
-    Guru::where('id', $guru->guru_id)->delete();
+    if ($guru->avatar) {
+        Storage::disk('public')->delete($guru->avatar);
+    }
 
-    // Hapus user terkait
-    User::where('id', $guru->user_id)->delete();
+    $mainGuru = Guru::find($guru->guru_id);
+    if ($mainGuru) {
+        if ($mainGuru->avatar) {
+            Storage::disk('public')->delete($mainGuru->avatar);
+        }
+        $mainGuru->delete();
+    }
 
-    // Hapus guru SMK
+    $user = User::find($guru->user_id);
+    if ($user) {
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->delete();
+    }
+
     $guru->delete();
 
     return response()->json(['message' => 'Guru SMK berhasil dihapus'], 200);
 }
 
-public function deletePerpus($id)
-{
-    // Cari perpus berdasarkan ID
+public function deletePerpus($id) {
     $perpus = Perpus::find($id);
     if (!$perpus) {
         return response()->json(['message' => 'Perpus tidak ditemukan'], 404);
     }
 
-    // Hapus user terkait
-    User::where('id', $perpus->user_id)->delete();
+    // Delete avatar if exists
+    if ($perpus->avatar) {
+        Storage::disk('public')->delete($perpus->avatar);
+    }
 
-    // Hapus perpus
+    // Delete user and avatar
+    $user = User::find($perpus->user_id);
+    if ($user) {
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        $user->delete();
+    }
+
     $perpus->delete();
 
     return response()->json(['message' => 'Perpus berhasil dihapus'], 200);
@@ -733,7 +976,6 @@ public function deletePerpus($id)
 
     
 public function updateUser(Request $request, $id) {
-    // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:users,username,' . $id,
         'email' => 'sometimes|email|unique:users,email,' . $id,
@@ -741,7 +983,8 @@ public function updateUser(Request $request, $id) {
         'kode' => 'sometimes|unique:users,kode,' . $id,
         'gender' => 'sometimes|in:Laki-Laki,Perempuan',
         'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa',
-        'kelas' => 'nullable|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII|required_if:role,Siswa'
+        'kelas' => 'nullable|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII|required_if:role,Siswa',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -751,14 +994,27 @@ public function updateUser(Request $request, $id) {
         ], 422);
     }
 
-    // Cari user berdasarkan ID
     $user = User::find($id);
-
     if (!$user) {
         return response()->json(['message' => 'User tidak ditemukan'], 404);
     }
 
-    // Update data user
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($user->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($user->id, $user->role, $avatarPath);
+        
+        $user->avatar = $avatarPath;
+}
+
     $user->username = $request->username ?? $user->username;
     $user->email = $request->email ?? $user->email;
     $user->gender = $request->gender ?? $user->gender;
@@ -769,7 +1025,6 @@ public function updateUser(Request $request, $id) {
         $user->password = Hash::make($request->password);
     }
 
-    // Update kode dan tabel terkait jika ada perubahan kode
     if ($request->filled('kode') && $request->kode !== $user->kode) {
         $user->kode = $request->kode;
 
@@ -780,7 +1035,6 @@ public function updateUser(Request $request, $id) {
                     $siswa->nis = $request->kode;
                     $siswa->save();
 
-                    // Update tabel sd_siswas, smp_siswas, atau smk_siswas
                     switch ($siswa->sekolah) {
                         case 'SD':
                             SdSiswa::where('siswa_id', $siswa->id)->update(['nis' => $request->kode]);
@@ -800,7 +1054,6 @@ public function updateUser(Request $request, $id) {
                     $guru->nip = $request->kode;
                     $guru->save();
 
-                    // Update tabel sd_gurus, smp_gurus, atau smk_gurus
                     switch ($guru->sekolah) {
                         case 'SD':
                             SdGuru::where('guru_id', $guru->id)->update([
@@ -835,8 +1088,50 @@ public function updateUser(Request $request, $id) {
         }
     }
 
-    // Simpan perubahan
     $user->save();
+
+    // Update avatar in related tables
+    if (isset($avatarPath)) {
+        switch ($user->role) {
+            case 'Siswa':
+                Siswa::where('user_id', $user->id)->update(['avatar' => $avatarPath]);
+                $siswa = Siswa::where('user_id', $user->id)->first();
+                if ($siswa) {
+                    switch ($siswa->sekolah) {
+                        case 'SD':
+                            SdSiswa::where('siswa_id', $siswa->id)->update(['avatar' => $avatarPath]);
+                            break;
+                        case 'SMP':
+                            SmpSiswa::where('siswa_id', $siswa->id)->update(['avatar' => $avatarPath]);
+                            break;
+                        case 'SMK':
+                            SmkSiswa::where('siswa_id', $siswa->id)->update(['avatar' => $avatarPath]);
+                            break;
+                    }
+                }
+                break;
+            case 'Guru':
+                Guru::where('user_id', $user->id)->update(['avatar' => $avatarPath]);
+                $guru = Guru::where('user_id', $user->id)->first();
+                if ($guru) {
+                    switch ($guru->sekolah) {
+                        case 'SD':
+                            SdGuru::where('guru_id', $guru->id)->update(['avatar' => $avatarPath]);
+                            break;
+                        case 'SMP':
+                            SmpGuru::where('guru_id', $guru->id)->update(['avatar' => $avatarPath]);
+                            break;
+                        case 'SMK':
+                            SmkGuru::where('guru_id', $guru->id)->update(['avatar' => $avatarPath]);
+                            break;
+                    }
+                }
+                break;
+            case 'Perpus':
+                Perpus::where('user_id', $user->id)->update(['avatar' => $avatarPath]);
+                break;
+        }
+    }
 
     return response()->json([
         'message' => 'User berhasil diperbarui',
@@ -845,7 +1140,6 @@ public function updateUser(Request $request, $id) {
 }
 
 public function updateSiswa(Request $request, $id) {
-    // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:siswas,username,' . $id,
         'email' => 'sometimes|email|unique:siswas,email,' . $id,
@@ -853,7 +1147,8 @@ public function updateSiswa(Request $request, $id) {
         'nis' => 'sometimes|unique:siswas,nis,' . $id,
         'gender' => 'sometimes|in:Laki-Laki,Perempuan',
         'sekolah' => 'sometimes|in:SD,SMP,SMK',
-        'kelas' => 'sometimes|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII'
+        'kelas' => 'sometimes|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -863,14 +1158,27 @@ public function updateSiswa(Request $request, $id) {
         ], 422);
     }
 
-    // Cari siswa berdasarkan ID
     $siswa = Siswa::find($id);
-
     if (!$siswa) {
         return response()->json(['message' => 'Siswa tidak ditemukan'], 404);
     }
 
-    // Update data siswa
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($siswa->avatar) {
+            Storage::disk('public')->delete($siswa->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($siswa->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($siswa->id, $siswa->role, $avatarPath);
+        
+        $siswa->avatar = $avatarPath;
+}
+
     $siswa->username = $request->username ?? $siswa->username;
     $siswa->email = $request->email ?? $siswa->email;
     $siswa->nis = $request->nis ?? $siswa->nis;
@@ -882,10 +1190,9 @@ public function updateSiswa(Request $request, $id) {
         $siswa->password = $request->password;
     }
 
-    // Simpan perubahan
     $siswa->save();
 
-    // Update data user terkait
+    // Update user
     $user = User::find($siswa->user_id);
     if ($user) {
         $user->username = $siswa->username;
@@ -894,7 +1201,11 @@ public function updateSiswa(Request $request, $id) {
         $user->gender = $siswa->gender;
         $user->sekolah = $siswa->sekolah;
         $user->kelas = $siswa->kelas;
-
+        
+        if (isset($avatarPath)) {
+            $user->avatar = $avatarPath;
+        }
+        
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
         }
@@ -902,37 +1213,29 @@ public function updateSiswa(Request $request, $id) {
         $user->save();
     }
 
-    // Update tabel sd_siswas, smp_siswas, atau smk_siswas
+    // Update specific school table
+    $updateData = [
+        'username' => $siswa->username,
+        'email' => $siswa->email,
+        'nis' => $siswa->nis,
+        'gender' => $siswa->gender,
+        'kelas' => $siswa->kelas,
+        'password' => $request->filled('password') ? $request->password : $siswa->password
+    ];
+
+    if (isset($avatarPath)) {
+        $updateData['avatar'] = $avatarPath;
+    }
+
     switch ($siswa->sekolah) {
         case 'SD':
-            SdSiswa::where('siswa_id', $siswa->id)->update([
-                'username' => $siswa->username,
-                'email' => $siswa->email,
-                'nis' => $siswa->nis,
-                'gender' => $siswa->gender,
-                'kelas' => $siswa->kelas,
-                'password' => $request->filled('password') ? $request->password : $siswa->password
-            ]);
+            SdSiswa::where('siswa_id', $siswa->id)->update($updateData);
             break;
         case 'SMP':
-            SmpSiswa::where('siswa_id', $siswa->id)->update([
-                'username' => $siswa->username,
-                'email' => $siswa->email,
-                'nis' => $siswa->nis,
-                'gender' => $siswa->gender,
-                'kelas' => $siswa->kelas,
-                'password' => $request->filled('password') ? $request->password : $siswa->password
-            ]);
+            SmpSiswa::where('siswa_id', $siswa->id)->update($updateData);
             break;
         case 'SMK':
-            SmkSiswa::where('siswa_id', $siswa->id)->update([
-                'username' => $siswa->username,
-                'email' => $siswa->email,
-                'nis' => $siswa->nis,
-                'gender' => $siswa->gender,
-                'kelas' => $siswa->kelas,
-                'password' => $request->filled('password') ? $request->password : $siswa->password
-            ]);
+            SmkSiswa::where('siswa_id', $siswa->id)->update($updateData);
             break;
     }
 
@@ -943,14 +1246,14 @@ public function updateSiswa(Request $request, $id) {
 }
 
 public function updateGuru(Request $request, $id) {
-    // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:gurus,username,' . $id,
         'email' => 'sometimes|email|unique:gurus,email,' . $id,
         'password' => 'sometimes',
         'nip' => 'sometimes|unique:gurus,nip,' . $id,
         'gender' => 'sometimes|in:Laki-Laki,Perempuan',
-        'sekolah' => 'sometimes|in:SD,SMP,SMK'
+        'sekolah' => 'sometimes|in:SD,SMP,SMK',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -960,14 +1263,28 @@ public function updateGuru(Request $request, $id) {
         ], 422);
     }
 
-    // Cari guru berdasarkan ID
     $guru = Guru::find($id);
-
     if (!$guru) {
         return response()->json(['message' => 'Guru tidak ditemukan'], 404);
     }
 
-    // Update data guru
+    // Handle avatar update
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($guru->avatar) {
+            Storage::disk('public')->delete($guru->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($guru->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($guru->id, $guru->role, $avatarPath);
+        
+        $guru->avatar = $avatarPath;
+}
+
     $guru->username = $request->username ?? $guru->username;
     $guru->email = $request->email ?? $guru->email;
     $guru->nip = $request->nip ?? $guru->nip;
@@ -980,7 +1297,7 @@ public function updateGuru(Request $request, $id) {
 
     $guru->save();
 
-    // Update data user terkait
+    // Update user
     $user = User::find($guru->user_id);
     if ($user) {
         $user->username = $guru->username;
@@ -988,7 +1305,11 @@ public function updateGuru(Request $request, $id) {
         $user->kode = $guru->nip;
         $user->gender = $guru->gender;
         $user->sekolah = $guru->sekolah;
-
+        
+        if (isset($avatarPath)) {
+            $user->avatar = $avatarPath;
+        }
+        
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
         }
@@ -996,16 +1317,18 @@ public function updateGuru(Request $request, $id) {
         $user->save();
     }
 
-    // Update data di tabel spesifik sekolah (SD/SMP/SMK)
+    // Update specific school table
     $updateData = [
         'username' => $guru->username,
         'email' => $guru->email,
         'nip' => $guru->nip,
-        'gender' => $guru->gender
+        'gender' => $guru->gender,
+        'sekolah' => $guru->sekolah,
+        'password' => $request->filled('password') ? $request->password : $guru->password
     ];
 
-    if ($request->filled('password')) {
-        $updateData['password'] = $request->password;
+    if (isset($avatarPath)) {
+        $updateData['avatar'] = $avatarPath;
     }
 
     switch ($guru->sekolah) {
@@ -1026,15 +1349,14 @@ public function updateGuru(Request $request, $id) {
     ], 200);
 }
 
-public function updatePerpus(Request $request, $id)
-{
-    // Validasi input
+public function updatePerpus(Request $request, $id) {
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:perpuses,username,' . $id,
         'email' => 'sometimes|email|unique:perpuses,email,' . $id,
         'password' => 'sometimes',
         'nip' => 'sometimes|unique:perpuses,nip,' . $id,
-        'gender' => 'sometimes|in:Laki-Laki,Perempuan'
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -1044,13 +1366,27 @@ public function updatePerpus(Request $request, $id)
         ], 422);
     }
 
-    // Cari data perpus berdasarkan ID
-    $perpus = Perpus::find($id); // Pastikan modelnya mengacu ke tabel `pepuses`
+    $perpus = Perpus::find($id);
     if (!$perpus) {
         return response()->json(['message' => 'Perpus tidak ditemukan'], 404);
     }
 
-    // Update data perpus
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($perpus->avatar) {
+            Storage::disk('public')->delete($perpus->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($perpus->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($perpus->id, $perpus->role, $avatarPath);
+        
+        $perpus->avatar = $avatarPath;
+}
+
     $perpus->username = $request->username ?? $perpus->username;
     $perpus->email = $request->email ?? $perpus->email;
     $perpus->nip = $request->nip ?? $perpus->nip;
@@ -1060,17 +1396,20 @@ public function updatePerpus(Request $request, $id)
         $perpus->password = $request->password;
     }
 
-    // Simpan perubahan
     $perpus->save();
 
-    // Update data user terkait
+    // Update user
     $user = User::find($perpus->user_id);
     if ($user) {
         $user->username = $perpus->username;
         $user->email = $perpus->email;
         $user->kode = $perpus->nip;
         $user->gender = $perpus->gender;
-
+        
+        if (isset($avatarPath)) {
+            $user->avatar = $avatarPath;
+        }
+        
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
         }
@@ -1084,15 +1423,16 @@ public function updatePerpus(Request $request, $id)
     ], 200);
 }
 
+
 public function updateSdSiswa(Request $request, $id) {
-    // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:sd_siswas,username,' . $id,
         'email' => 'sometimes|email|unique:sd_siswas,email,' . $id,
         'password' => 'sometimes',
         'nis' => 'sometimes|unique:sd_siswas,nis,' . $id,
         'gender' => 'sometimes|in:Laki-Laki,Perempuan',
-        'kelas' => 'sometimes|in:I,II,III,IV,V,VI'
+        'kelas' => 'sometimes|in:I,II,III,IV,V,VI',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -1102,14 +1442,27 @@ public function updateSdSiswa(Request $request, $id) {
         ], 422);
     }
 
-    // Cari siswa SD berdasarkan ID
     $siswa = SdSiswa::find($id);
-
     if (!$siswa) {
         return response()->json(['message' => 'Siswa SD tidak ditemukan'], 404);
     }
 
-    // Update data siswa SD
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($siswa->avatar) {
+            Storage::disk('public')->delete($siswa->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($siswa->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($siswa->id, $siswa->role, $avatarPath);
+        
+        $siswa->avatar = $avatarPath;
+}
+
     $siswa->username = $request->username ?? $siswa->username;
     $siswa->email = $request->email ?? $siswa->email;
     $siswa->nis = $request->nis ?? $siswa->nis;
@@ -1120,36 +1473,44 @@ public function updateSdSiswa(Request $request, $id) {
         $siswa->password = $request->password;
     }
 
-    // Simpan perubahan
     $siswa->save();
 
     // Update data siswa di tabel siswas
-    Siswa::where('id', $siswa->siswa_id)->update([
+    $updateData = [
         'username' => $siswa->username,
         'email' => $siswa->email,
         'nis' => $siswa->nis,
         'gender' => $siswa->gender,
         'sekolah' => 'SD',
         'kelas' => $siswa->kelas,
-        'password' => $request->filled('password') ? $request->password : $siswa->password,
-    ]);
+        'password' => $request->filled('password') ? $request->password : $siswa->password
+    ];
+
+    if (isset($avatarPath)) {
+        $updateData['avatar'] = $avatarPath;
+    }
+
+    Siswa::where('id', $siswa->siswa_id)->update($updateData);
 
     // Update data user terkait
-    $user = User::find($siswa->user_id);
-    if ($user) {
-        $user->username = $siswa->username;
-        $user->email = $siswa->email;
-        $user->kode = $siswa->nis;
-        $user->gender = $siswa->gender;
-        $user->sekolah = 'SD';
-        $user->kelas = $siswa->kelas;
+    $userUpdateData = [
+        'username' => $siswa->username,
+        'email' => $siswa->email,
+        'kode' => $siswa->nis,
+        'gender' => $siswa->gender,
+        'sekolah' => 'SD',
+        'kelas' => $siswa->kelas
+    ];
 
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
-
-        $user->save();
+    if (isset($avatarPath)) {
+        $userUpdateData['avatar'] = $avatarPath;
     }
+
+    if ($request->filled('password')) {
+        $userUpdateData['password'] = Hash::make($request->password);
+    }
+
+    User::where('id', $siswa->user_id)->update($userUpdateData);
 
     return response()->json([
         'message' => 'Siswa SD berhasil diperbarui',
@@ -1158,14 +1519,14 @@ public function updateSdSiswa(Request $request, $id) {
 }
 
 public function updateSmpSiswa(Request $request, $id) {
-    // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:smp_siswas,username,' . $id,
         'email' => 'sometimes|email|unique:smp_siswas,email,' . $id,
         'password' => 'sometimes',
         'nis' => 'sometimes|unique:smp_siswas,nis,' . $id,
         'gender' => 'sometimes|in:Laki-Laki,Perempuan',
-        'kelas' => 'sometimes|in:VII,VIII,IX'
+        'kelas' => 'sometimes|in:VII,VIII,IX',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -1175,14 +1536,27 @@ public function updateSmpSiswa(Request $request, $id) {
         ], 422);
     }
 
-    // Cari siswa SMP berdasarkan ID
     $siswa = SmpSiswa::find($id);
-
     if (!$siswa) {
         return response()->json(['message' => 'Siswa SMP tidak ditemukan'], 404);
     }
 
-    // Update data siswa SMP
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($siswa->avatar) {
+            Storage::disk('public')->delete($siswa->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($siswa->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($siswa->id, $siswa->role, $avatarPath);
+        
+        $siswa->avatar = $avatarPath;
+}
+
     $siswa->username = $request->username ?? $siswa->username;
     $siswa->email = $request->email ?? $siswa->email;
     $siswa->nis = $request->nis ?? $siswa->nis;
@@ -1193,36 +1567,44 @@ public function updateSmpSiswa(Request $request, $id) {
         $siswa->password = $request->password;
     }
 
-    // Simpan perubahan
     $siswa->save();
 
     // Update data siswa di tabel siswas
-    Siswa::where('id', $siswa->siswa_id)->update([
+    $updateData = [
         'username' => $siswa->username,
         'email' => $siswa->email,
         'nis' => $siswa->nis,
         'gender' => $siswa->gender,
         'sekolah' => 'SMP',
         'kelas' => $siswa->kelas,
-        'password' => $request->filled('password') ? $request->password : $siswa->password,
-    ]);
+        'password' => $request->filled('password') ? $request->password : $siswa->password
+    ];
+
+    if (isset($avatarPath)) {
+        $updateData['avatar'] = $avatarPath;
+    }
+
+    Siswa::where('id', $siswa->siswa_id)->update($updateData);
 
     // Update data user terkait
-    $user = User::find($siswa->user_id);
-    if ($user) {
-        $user->username = $siswa->username;
-        $user->email = $siswa->email;
-        $user->kode = $siswa->nis;
-        $user->gender = $siswa->gender;
-        $user->sekolah = 'SMP';
-        $user->kelas = $siswa->kelas;
+    $userUpdateData = [
+        'username' => $siswa->username,
+        'email' => $siswa->email,
+        'kode' => $siswa->nis,
+        'gender' => $siswa->gender,
+        'sekolah' => 'SMP',
+        'kelas' => $siswa->kelas
+    ];
 
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
-
-        $user->save();
+    if (isset($avatarPath)) {
+        $userUpdateData['avatar'] = $avatarPath;
     }
+
+    if ($request->filled('password')) {
+        $userUpdateData['password'] = Hash::make($request->password);
+    }
+
+    User::where('id', $siswa->user_id)->update($userUpdateData);
 
     return response()->json([
         'message' => 'Siswa SMP berhasil diperbarui',
@@ -1231,14 +1613,14 @@ public function updateSmpSiswa(Request $request, $id) {
 }
 
 public function updateSmkSiswa(Request $request, $id) {
-    // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:smk_siswas,username,' . $id,
         'email' => 'sometimes|email|unique:smk_siswas,email,' . $id,
         'password' => 'sometimes',
         'nis' => 'sometimes|unique:smk_siswas,nis,' . $id,
         'gender' => 'sometimes|in:Laki-Laki,Perempuan',
-        'kelas' => 'sometimes|in:X,XI,XII'
+        'kelas' => 'sometimes|in:X,XI,XII',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -1248,14 +1630,27 @@ public function updateSmkSiswa(Request $request, $id) {
         ], 422);
     }
 
-    // Cari siswa SMK berdasarkan ID
     $siswa = SmkSiswa::find($id);
-
     if (!$siswa) {
         return response()->json(['message' => 'Siswa SMK tidak ditemukan'], 404);
     }
 
-    // Update data siswa SMK
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($siswa->avatar) {
+            Storage::disk('public')->delete($siswa->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($siswa->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($siswa->id, $siswa->role, $avatarPath);
+        
+        $siswa->avatar = $avatarPath;
+}
+
     $siswa->username = $request->username ?? $siswa->username;
     $siswa->email = $request->email ?? $siswa->email;
     $siswa->nis = $request->nis ?? $siswa->nis;
@@ -1266,36 +1661,44 @@ public function updateSmkSiswa(Request $request, $id) {
         $siswa->password = $request->password;
     }
 
-    // Simpan perubahan
     $siswa->save();
 
     // Update data siswa di tabel siswas
-    Siswa::where('id', $siswa->siswa_id)->update([
+    $updateData = [
         'username' => $siswa->username,
         'email' => $siswa->email,
         'nis' => $siswa->nis,
         'gender' => $siswa->gender,
         'sekolah' => 'SMK',
         'kelas' => $siswa->kelas,
-        'password' => $request->filled('password') ? $request->password : $siswa->password,
-    ]);
+        'password' => $request->filled('password') ? $request->password : $siswa->password
+    ];
+
+    if (isset($avatarPath)) {
+        $updateData['avatar'] = $avatarPath;
+    }
+
+    Siswa::where('id', $siswa->siswa_id)->update($updateData);
 
     // Update data user terkait
-    $user = User::find($siswa->user_id);
-    if ($user) {
-        $user->username = $siswa->username;
-        $user->email = $siswa->email;
-        $user->kode = $siswa->nis;
-        $user->gender = $siswa->gender;
-        $user->sekolah = 'SMK';
-        $user->kelas = $siswa->kelas;
+    $userUpdateData = [
+        'username' => $siswa->username,
+        'email' => $siswa->email,
+        'kode' => $siswa->nis,
+        'gender' => $siswa->gender,
+        'sekolah' => 'SMK',
+        'kelas' => $siswa->kelas
+    ];
 
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
-
-        $user->save();
+    if (isset($avatarPath)) {
+        $userUpdateData['avatar'] = $avatarPath;
     }
+
+    if ($request->filled('password')) {
+        $userUpdateData['password'] = Hash::make($request->password);
+    }
+
+    User::where('id', $siswa->user_id)->update($userUpdateData);
 
     return response()->json([
         'message' => 'Siswa SMK berhasil diperbarui',
@@ -1304,13 +1707,13 @@ public function updateSmkSiswa(Request $request, $id) {
 }
 
 public function updateSdGuru(Request $request, $id) {
-    // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:sd_gurus,username,' . $id,
         'email' => 'sometimes|email|unique:sd_gurus,email,' . $id,
         'password' => 'sometimes',
         'nip' => 'sometimes|unique:sd_gurus,nip,' . $id,
-        'gender' => 'sometimes|in:Laki-Laki,Perempuan'
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -1320,14 +1723,27 @@ public function updateSdGuru(Request $request, $id) {
         ], 422);
     }
 
-    // Cari guru SD berdasarkan ID
     $guru = SdGuru::find($id);
-
     if (!$guru) {
         return response()->json(['message' => 'Guru SD tidak ditemukan'], 404);
     }
 
-    // Update data guru SD
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($guru->avatar) {
+            Storage::disk('public')->delete($guru->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($guru->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($guru->id, $guru->role, $avatarPath);
+        
+        $guru->avatar = $avatarPath;
+}
+
     $guru->username = $request->username ?? $guru->username;
     $guru->email = $request->email ?? $guru->email;
     $guru->nip = $request->nip ?? $guru->nip;
@@ -1337,34 +1753,42 @@ public function updateSdGuru(Request $request, $id) {
         $guru->password = $request->password;
     }
 
-    // Simpan perubahan
     $guru->save();
 
     // Update data guru di tabel gurus
-    Guru::where('id', $guru->guru_id)->update([
+    $updateData = [
         'username' => $guru->username,
         'email' => $guru->email,
         'nip' => $guru->nip,
         'gender' => $guru->gender,
         'sekolah' => 'SD',
-        'password' => $request->filled('password') ? $request->password : $guru->password,
-    ]);
+        'password' => $request->filled('password') ? $request->password : $guru->password
+    ];
+
+    if (isset($avatarPath)) {
+        $updateData['avatar'] = $avatarPath;
+    }
+
+    Guru::where('id', $guru->guru_id)->update($updateData);
 
     // Update data user terkait
-    $user = User::find($guru->user_id);
-    if ($user) {
-        $user->username = $guru->username;
-        $user->email = $guru->email;
-        $user->kode = $guru->nip;
-        $user->gender = $guru->gender;
-        $user->sekolah = 'SD';
+    $userUpdateData = [
+        'username' => $guru->username,
+        'email' => $guru->email,
+        'kode' => $guru->nip,
+        'gender' => $guru->gender,
+        'sekolah' => 'SD'
+    ];
 
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
-
-        $user->save();
+    if (isset($avatarPath)) {
+        $userUpdateData['avatar'] = $avatarPath;
     }
+
+    if ($request->filled('password')) {
+        $userUpdateData['password'] = Hash::make($request->password);
+    }
+
+    User::where('id', $guru->user_id)->update($userUpdateData);
 
     return response()->json([
         'message' => 'Guru SD berhasil diperbarui',
@@ -1373,13 +1797,13 @@ public function updateSdGuru(Request $request, $id) {
 }
 
 public function updateSmpGuru(Request $request, $id) {
-    // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:smp_gurus,username,' . $id,
         'email' => 'sometimes|email|unique:smp_gurus,email,' . $id,
         'password' => 'sometimes',
         'nip' => 'sometimes|unique:smp_gurus,nip,' . $id,
-        'gender' => 'sometimes|in:Laki-Laki,Perempuan'
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -1389,14 +1813,27 @@ public function updateSmpGuru(Request $request, $id) {
         ], 422);
     }
 
-    // Cari guru SMP berdasarkan ID
     $guru = SmpGuru::find($id);
-
     if (!$guru) {
         return response()->json(['message' => 'Guru SMP tidak ditemukan'], 404);
     }
 
-    // Update data guru SMP
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($guru->avatar) {
+            Storage::disk('public')->delete($guru->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($guru->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($guru->id, $guru->role, $avatarPath);
+        
+        $guru->avatar = $avatarPath;
+}
+
     $guru->username = $request->username ?? $guru->username;
     $guru->email = $request->email ?? $guru->email;
     $guru->nip = $request->nip ?? $guru->nip;
@@ -1406,34 +1843,42 @@ public function updateSmpGuru(Request $request, $id) {
         $guru->password = $request->password;
     }
 
-    // Simpan perubahan
     $guru->save();
 
     // Update data guru di tabel gurus
-    Guru::where('id', $guru->guru_id)->update([
+    $updateData = [
         'username' => $guru->username,
         'email' => $guru->email,
         'nip' => $guru->nip,
         'gender' => $guru->gender,
         'sekolah' => 'SMP',
-        'password' => $request->filled('password') ? $request->password : $guru->password,
-    ]);
+        'password' => $request->filled('password') ? $request->password : $guru->password
+    ];
+
+    if (isset($avatarPath)) {
+        $updateData['avatar'] = $avatarPath;
+    }
+
+    Guru::where('id', $guru->guru_id)->update($updateData);
 
     // Update data user terkait
-    $user = User::find($guru->user_id);
-    if ($user) {
-        $user->username = $guru->username;
-        $user->email = $guru->email;
-        $user->kode = $guru->nip;
-        $user->gender = $guru->gender;
-        $user->sekolah = 'SMP';
+    $userUpdateData = [
+        'username' => $guru->username,
+        'email' => $guru->email,
+        'kode' => $guru->nip,
+        'gender' => $guru->gender,
+        'sekolah' => 'SMP'
+    ];
 
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
-
-        $user->save();
+    if (isset($avatarPath)) {
+        $userUpdateData['avatar'] = $avatarPath;
     }
+
+    if ($request->filled('password')) {
+        $userUpdateData['password'] = Hash::make($request->password);
+    }
+
+    User::where('id', $guru->user_id)->update($userUpdateData);
 
     return response()->json([
         'message' => 'Guru SMP berhasil diperbarui',
@@ -1442,13 +1887,13 @@ public function updateSmpGuru(Request $request, $id) {
 }
 
 public function updateSmkGuru(Request $request, $id) {
-    // Validasi input
     $validator = Validator::make($request->all(), [
         'username' => 'sometimes|unique:smk_gurus,username,' . $id,
         'email' => 'sometimes|email|unique:smk_gurus,email,' . $id,
         'password' => 'sometimes',
         'nip' => 'sometimes|unique:smk_gurus,nip,' . $id,
-        'gender' => 'sometimes|in:Laki-Laki,Perempuan'
+        'gender' => 'sometimes|in:Laki-Laki,Perempuan',
+        'avatar' => 'sometimes|image|mimes:jpeg,png,jpg,gif'
     ]);
 
     if ($validator->fails()) {
@@ -1458,14 +1903,27 @@ public function updateSmkGuru(Request $request, $id) {
         ], 422);
     }
 
-    // Cari guru SMK berdasarkan ID
     $guru = SmkGuru::find($id);
-
     if (!$guru) {
         return response()->json(['message' => 'Guru SMK tidak ditemukan'], 404);
     }
 
-    // Update data guru SMK
+    if ($request->hasFile('avatar')) {
+        // Delete old avatar if exists
+        if ($guru->avatar) {
+            Storage::disk('public')->delete($guru->avatar);
+        }
+        
+        $extension = $request->file('avatar')->getClientOriginalExtension();
+        $avatarName = $this->generateAvatarName($guru->username, $extension);
+        $avatarPath = $request->file('avatar')->storeAs('avatars', $avatarName, 'public');
+        
+        // Update semua tabel terkait
+        $this->updateAvatarInAllTables($guru->id, $guru->role, $avatarPath);
+        
+        $guru->avatar = $avatarPath;
+}
+
     $guru->username = $request->username ?? $guru->username;
     $guru->email = $request->email ?? $guru->email;
     $guru->nip = $request->nip ?? $guru->nip;
@@ -1475,39 +1933,48 @@ public function updateSmkGuru(Request $request, $id) {
         $guru->password = $request->password;
     }
 
-    // Simpan perubahan
     $guru->save();
 
     // Update data guru di tabel gurus
-    Guru::where('id', $guru->guru_id)->update([
+    $updateData = [
         'username' => $guru->username,
         'email' => $guru->email,
         'nip' => $guru->nip,
         'gender' => $guru->gender,
         'sekolah' => 'SMK',
-        'password' => $request->filled('password') ? $request->password : $guru->password,
-    ]);
+        'password' => $request->filled('password') ? $request->password : $guru->password
+    ];
+
+    if (isset($avatarPath)) {
+        $updateData['avatar'] = $avatarPath;
+    }
+
+    Guru::where('id', $guru->guru_id)->update($updateData);
 
     // Update data user terkait
-    $user = User::find($guru->user_id);
-    if ($user) {
-        $user->username = $guru->username;
-        $user->email = $guru->email;
-        $user->kode = $guru->nip;
-        $user->gender = $guru->gender;
-        $user->sekolah = 'SMK';
+    $userUpdateData = [
+        'username' => $guru->username,
+        'email' => $guru->email,
+        'kode' => $guru->nip,
+        'gender' => $guru->gender,
+        'sekolah' => 'SMK'
+    ];
 
-        if ($request->filled('password')) {
-            $user->password = Hash::make($request->password);
-        }
-
-        $user->save();
+    if (isset($avatarPath)) {
+        $userUpdateData['avatar'] = $avatarPath;
     }
+
+    if ($request->filled('password')) {
+        $userUpdateData['password'] = Hash::make($request->password);
+    }
+
+    User::where('id', $guru->user_id)->update($userUpdateData);
 
     return response()->json([
         'message' => 'Guru SMK berhasil diperbarui',
         'guru' => $guru
     ], 200);
 }
-}
+};
+
 

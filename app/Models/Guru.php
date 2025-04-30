@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class Guru extends Model
 {
@@ -18,7 +19,16 @@ class Guru extends Model
         'nip',
         'gender',
         'sekolah',
+        'avatar'
     ];
+
+    protected $appends = ['avatar_url'];
+
+
+    public function getAvatarUrlAttribute()
+    {
+        return $this->avatar ? Storage::url($this->avatar) : null;
+    }
 
     // Relasi dengan User
     public function user(): BelongsTo

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 class SmpSiswa extends Model
 {
     use HasFactory;
@@ -21,11 +22,20 @@ class SmpSiswa extends Model
         'gender',
         'sekolah',
         'kelas',
+        'avatar'
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    protected $appends = ['avatar_url'];
+
+
+    public function getAvatarUrlAttribute()
+    {
+        return $this->avatar ? Storage::url($this->avatar) : null;
     }
 
     public function siswas(): BelongsTo

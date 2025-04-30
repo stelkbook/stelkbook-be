@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('password');
             $table->string('nip')->unique();
             $table->enum('gender', ['Laki-Laki', 'Perempuan']);
+            $table->string('avatar')->nullable();
             $table->timestamps();
         });
         

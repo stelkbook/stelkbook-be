@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('nip')->unique();
             $table->enum('gender', ['Laki-Laki', 'Perempuan']);
             $table->enum('sekolah',['SMP']);
+            $table->string('avatar')->nullable();
             $table->timestamps();
         });
     }

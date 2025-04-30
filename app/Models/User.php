@@ -8,6 +8,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -26,7 +27,8 @@ class User extends Authenticatable
         'role',
         'gender',
         'sekolah',
-        'kelas'
+        'kelas',
+        'avatar',
     ];
 
     /**
@@ -63,6 +65,14 @@ class User extends Authenticatable
         }
     }
 
+    protected $appends = ['avatar_url'];
+
+
+    public function getAvatarUrlAttribute()
+    {
+        return $this->avatar ? Storage::url($this->avatar) : null;
+    }
+    
     public function setKelasAttribute($value)
     {
         if ($this->attributes['role'] === 'Siswa') {

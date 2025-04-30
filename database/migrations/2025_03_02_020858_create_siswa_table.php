@@ -25,6 +25,7 @@ return new class extends Migration
                 'VII', 'VIII', 'IX', // SMP
                 'X', 'XI', 'XII' // SMK
             ]);
+            $table->string('avatar')->nullable();
             $table->timestamps();
         });
         

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-
+use Illuminate\Support\Facades\Storage;
 class Siswa extends Model
 {
     use HasFactory;
@@ -19,7 +19,8 @@ class Siswa extends Model
         'nis',
         'gender',
         'sekolah',
-        'kelas'
+        'kelas',
+        'avatar'
     ];
 
     protected static function boot()
@@ -53,6 +54,14 @@ class Siswa extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    protected $appends = ['avatar_url'];
+
+
+    public function getAvatarUrlAttribute()
+    {
+        return $this->avatar ? Storage::url($this->avatar) : null;
     }
 
     // Relasi ke SdSiswa

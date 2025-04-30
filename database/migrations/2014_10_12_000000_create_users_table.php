@@ -25,6 +25,7 @@ return new class extends Migration
                 'VII', 'VIII', 'IX', // SMP
                 'X', 'XI', 'XII' // SMK
             ])->nullable(); // Hanya berlaku untuk Siswa
+            $table->string('avatar')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

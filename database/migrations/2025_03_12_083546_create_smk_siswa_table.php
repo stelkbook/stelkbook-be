@@ -19,6 +19,7 @@ return new class extends Migration
             $table->enum('sekolah',['SMK']);
             $table->enum('gender', ['Laki-Laki', 'Perempuan']);
             $table->enum('kelas', ['X', 'XI', 'XII']);
+            $table->string('avatar')->nullable();
             $table->timestamps();
         });
     }
