@@ -29,6 +29,7 @@ class User extends Authenticatable
         'sekolah',
         'kelas',
         'avatar',
+        'is_approved'
     ];
 
     /**

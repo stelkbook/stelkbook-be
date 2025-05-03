@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
+        Schema::create('tb_approve', function (Blueprint $table) {
             $table->id();
             $table->string('username')->unique();
             $table->string('email')->unique();
@@ -27,7 +27,6 @@ return new class extends Migration
             ])->nullable(); // Hanya berlaku untuk Siswa
             $table->string('avatar')->nullable();
              $table->boolean('is_approved')->default(false);
-            $table->rememberToken();
             $table->timestamps();
         });
     }
@@ -37,6 +36,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('tb_approve');
     }
 };

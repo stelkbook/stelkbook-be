@@ -11,14 +11,11 @@ use Illuminate\Support\Facades\DB;
 Route::post('/register', [authController::class, 'register']);
 Route::post('/register2', [authController::class, 'register2']);
 Route::post('/login', [authController::class, 'login'])->name('login');
+Route::get('/users-pending', [authController::class, 'pendingUsers']);
+Route::post('/approve-user/{id}', [authController::class, 'approveUser']);
+Route::delete('/reject-user/{id}', [authController::class, 'rejectUser']);
 
 Route::middleware('auth:sanctum')->group(function() {
-  // Untuk admin/perpus
-  Route::get('/pending-registrations', [AuthController::class, 'getPendingRegistrations']);
-  Route::get('/pending-registrations/{id}', [AuthController::class, 'getPendingUser']);
-  Route::post('/approve-registration/{id}', [AuthController::class, 'approveRegistration']);
-  Route::post('/reject-registration/{id}', [AuthController::class, 'rejectRegistration']);
-
 Route::get('/user',[authController::class, 'user']);
 Route::get('/siswa',[authController::class, 'siswa']);
 Route::get('/siswa-sd',[authController::class, 'sdSiswa']);

@@ -12,7 +12,9 @@ use App\Models\SmkSiswa;
 use App\Models\SdGuru;
 use App\Models\SmpGuru;
 use App\Models\SmkGuru;
+use App\Models\Approve;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -91,7 +93,8 @@ class AuthController extends Controller
                 'gender' => $request->gender,
                 'sekolah' => in_array($request->role, ['Siswa', 'Guru']) ? $request->sekolah : null,
                 'kelas' => $request->role === 'Siswa' ? $request->kelas : null,
-                'avatar' => $avatarPath
+                'avatar' => $avatarPath,
+                'is_approved' => true // <-- tambahkan ini
             ]);
 
             if ($request->role === 'Siswa') {
@@ -230,6 +233,248 @@ class AuthController extends Controller
             ], 201);
         }
 
+        public function register2(Request $request)
+        {
+            $request->validate([
+                'username' => 'required|unique:users,username',
+                'email' => 'required|email|unique:users,email',
+                'password' => 'required',
+                'kode' => 'required|unique:users,kode',
+                'role' => 'required|in:Siswa,Guru,Admin,Perpus',
+                'gender' => 'required|in:Laki-Laki,Perempuan',
+                'sekolah' => 'nullable|in:SD,SMP,SMK|required_if:role,Siswa,Guru',
+                'kelas' => 'nullable|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII|required_if:role,Siswa',
+                'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif',
+            ]);
+
+            // Handle avatar upload
+    $avatarPath = null;
+    if ($request->hasFile('avatar')) {
+        $avatarFile = $request->file('avatar');
+    $avatarName = time() . '_' . $avatarFile->getClientOriginalName(); // tambahkan timestamp biar unik
+    $avatarPath = $avatarFile->storeAs('avatars', $avatarName, 'public');
+    }
+
+    // ⛔ Jika Admin, langsung simpan ke tabel users
+    if ($request->role === 'Admin') {
+        $user = User::create([
+            'username' => $request->username,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'kode' => $request->kode,
+            'role' => 'Admin',
+            'gender' => $request->gender,
+            'sekolah' => null,
+            'kelas' => null,
+            'avatar' => $avatarPath,
+            'is_approved' => true,
+        ]);
+
+        return response()->json([
+            'message' => 'Admin berhasil didaftarkan.',
+            'user' => $user,
+        ], 201);
+    }
+
+             // Simpan ke tb_approve
+    $approve = Approve::create([
+        'username' => $request->username,
+        'email' => $request->email,
+        'password' => $request->password,
+        'kode' => $request->kode,
+        'role' => $request->role,
+        'gender' => $request->gender,
+        'sekolah' => in_array($request->role, ['Siswa', 'Guru']) ? $request->sekolah : null,
+        'kelas' => $request->role === 'Siswa' ? $request->kelas : null,
+        'avatar' => $avatarPath,
+    ]);
+
+            return response()->json([
+                'message' => 'User created successfully',
+                'user' => $approve
+            ], 201);
+        }
+
+        public function pendingUsers()
+        {
+            $users = Approve::all();
+            return response()->json($users);
+        }
+        
+
+        public function approveUser($id)
+        {
+            $approve = Approve::findOrFail($id);
+        
+            DB::beginTransaction();
+        
+            try {
+                // 1. Buat user utama
+                $user = User::create([
+                    'username' => $approve->username,
+                    'email' => $approve->email,
+                    'password' => Hash::make($approve->password),
+                    'kode' => $approve->kode,
+                    'role' => $approve->role,
+                    'gender' => $approve->gender,
+                    'sekolah' => $approve->sekolah,
+                    'kelas' => $approve->kelas,
+                    'avatar' => $approve->avatar,
+                    'is_approved' => true
+                ]);
+        
+                // 2. Simpan ke tabel sesuai rolenya
+                switch ($approve->role) {
+                    case 'Siswa':
+                        $siswa = Siswa::create([
+                            'user_id' => $user->id,
+                            'username' => $user->username,
+                            'email' => $user->email,
+                            'password' => $approve->password,
+                            'nis' => $user->kode,
+                            'gender' => $user->gender,
+                            'sekolah' => $user->sekolah,
+                            'kelas' => $user->kelas,
+                            'avatar' => $user->avatar
+                        ]);
+        
+                        switch ($approve->sekolah) {
+                            case 'SD':
+                                SdSiswa::create([
+                                    'user_id' => $user->id,
+                                    'siswa_id' => $siswa->id,
+                                    'username' => $user->username,
+                                    'email' => $user->email,
+                                    'password' => $approve->password,
+                                    'nis' => $user->kode,
+                                    'gender' => $user->gender,
+                                    'kelas' => $user->kelas,
+                                    'avatar' => $user->avatar
+                                ]);
+                                break;
+                            case 'SMP':
+                                SmpSiswa::create([
+                                    'user_id' => $user->id,
+                                    'siswa_id' => $siswa->id,
+                                    'username' => $user->username,
+                                    'email' => $user->email,
+                                    'password' => $approve->password,
+                                    'nis' => $user->kode,
+                                    'gender' => $user->gender,
+                                    'kelas' => $user->kelas,
+                                    'avatar' => $user->avatar
+                                ]);
+                                break;
+                            case 'SMK':
+                                SmkSiswa::create([
+                                    'user_id' => $user->id,
+                                    'siswa_id' => $siswa->id,
+                                    'username' => $user->username,
+                                    'email' => $user->email,
+                                    'password' => $approve->password,
+                                    'nis' => $user->kode,
+                                    'gender' => $user->gender,
+                                    'kelas' => $user->kelas,
+                                    'avatar' => $user->avatar
+                                ]);
+                                break;
+                        }
+                        break;
+        
+                    case 'Guru':
+                        $guru = Guru::create([
+                            'user_id' => $user->id,
+                            'username' => $user->username,
+                            'email' => $user->email,
+                            'password' => $approve->password,
+                            'nip' => $user->kode,
+                            'gender' => $user->gender,
+                            'sekolah' => $user->sekolah,
+                            'avatar' => $user->avatar
+                        ]);
+        
+                        switch ($approve->sekolah) {
+                            case 'SD':
+                                SdGuru::create([
+                                    'user_id' => $user->id,
+                                    'guru_id' => $guru->id,
+                                    'username' => $user->username,
+                                    'email' => $user->email,
+                                    'password' => $approve->password,
+                                    'nip' => $user->kode,
+                                    'gender' => $user->gender,
+                                    'sekolah' => $user->sekolah,
+                                    'avatar' => $user->avatar
+                                ]);
+                                break;
+                            case 'SMP':
+                                SmpGuru::create([
+                                    'user_id' => $user->id,
+                                    'guru_id' => $guru->id,
+                                    'username' => $user->username,
+                                    'email' => $user->email,
+                                    'password' => $approve->password,
+                                    'nip' => $user->kode,
+                                    'gender' => $user->gender,
+                                    'sekolah' => $user->sekolah,
+                                    'avatar' => $user->avatar
+                                ]);
+                                break;
+                            case 'SMK':
+                                SmkGuru::create([
+                                    'user_id' => $user->id,
+                                    'guru_id' => $guru->id,
+                                    'username' => $user->username,
+                                    'email' => $user->email,
+                                    'password' => $approve->password,
+                                    'nip' => $user->kode,
+                                    'gender' => $user->gender,
+                                    'sekolah' => $user->sekolah,
+                                    'avatar' => $user->avatar
+                                ]);
+                                break;
+                        }
+                        break;
+        
+                    case 'Perpus':
+                        Perpus::create([
+                            'user_id' => $user->id,
+                            'username' => $user->username,
+                            'email' => $user->email,
+                            'password' => $approve->password,
+                            'nip' => $user->kode,
+                            'gender' => $user->gender,
+                            'avatar' => $user->avatar
+                        ]);
+                        break;
+                }
+        
+                // 3. Hapus dari tb_approve
+                $approve->delete();
+        
+                DB::commit();
+        
+                return response()->json(['message' => 'User berhasil disetujui dan dipindahkan.']);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Gagal menyetujui user.',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+        }
+        
+        public function rejectUser($id)
+        {
+            $pending = Approve::findOrFail($id);
+            $pending->delete();
+        
+            return response()->json([
+                'message' => 'User berhasil ditolak dan dihapus dari daftar approval.'
+            ]);
+        }
+        
+
     
 
     public function getSiswa($id)
@@ -333,32 +578,41 @@ public function getSmkGuru($id)
     
 
     public function login(Request $request)
-    {
-        $request->validate([
-            'kode' => 'required',
-            'password' => 'required',
-        ]);
-    
-        $user = User::where('kode', $request->kode)->first();
-    
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Unauthorized: Invalid credentials'], 401);
-        }
+{
+    $request->validate([
+        'kode' => 'required',
+        'password' => 'required',
+    ]);
 
-        if (in_array($user->role, ['Guru', 'Admin', 'Perpus'])) {
-            $user->sekolah = null;
-            $user->kelas = null;
-            $user->save();
-        }
-    
-        $token = $user->createToken('auth_token')->plainTextToken;
-    
-        return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'user' => $user,
-        ], 200);
+    $user = User::where('kode', $request->kode)->first();
+
+    if (!$user || !Hash::check($request->password, $user->password)) {
+        return response()->json(['message' => 'Unauthorized: Invalid credentials'], 401);
     }
+
+    // ⛔ Cek apakah user sudah disetujui admin, kecuali kalau dia Admin
+    if ($user->role !== 'Admin' && !$user->is_approved) {
+        return response()->json([
+            'message' => 'Akun Anda belum disetujui oleh admin.'
+        ], 403);
+    }
+
+    // Reset sekolah & kelas kalau rolenya bukan siswa
+    if (in_array($user->role, ['Guru', 'Admin', 'Perpus'])) {
+        $user->sekolah = null;
+        $user->kelas = null;
+        $user->save();
+    }
+
+    $token = $user->createToken('auth_token')->plainTextToken;
+
+    return response()->json([
+        'access_token' => $token,
+        'token_type' => 'Bearer',
+        'user' => $user,
+    ], 200);
+}
+
     
 
     public function user(Request $request)
