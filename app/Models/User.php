@@ -111,4 +111,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(Perpus::class,'user_id');
     }
+
+    public function kunjungans()
+{
+    return $this->hasMany(Kunjungan::class);
+}
 }

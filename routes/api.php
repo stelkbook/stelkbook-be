@@ -5,15 +5,15 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\authController;
 use App\Http\Controllers\BookController;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\KunjunganController;
+
 
 
 //authControlller
 Route::post('/register', [authController::class, 'register']);
 Route::post('/register2', [authController::class, 'register2']);
 Route::post('/login', [authController::class, 'login'])->name('login');
-Route::get('/users-pending', [authController::class, 'pendingUsers']);
-Route::post('/approve-user/{id}', [authController::class, 'approveUser']);
-Route::delete('/reject-user/{id}', [authController::class, 'rejectUser']);
+
 
 Route::middleware('auth:sanctum')->group(function() {
 Route::get('/user',[authController::class, 'user']);
@@ -28,7 +28,14 @@ Route::get('/guru-smk',[authController::class, 'smkGuru']);
 Route::get('/perpus',[authController::class, 'perpus']);
 Route::post('/logout', [authController::class, 'logout']);
 Route::post('/change-password', [authController::class, 'changePassword']);
-});
+Route::get('/kunjungans', [KunjunganController::class, 'indexHariIni']);
+Route::get('/data-kunjungans', [KunjunganController::class, 'index']);
+Route::get('/kunjungans/rekap', [KunjunganController::class, 'rekap']);
+Route::get('/kunjungans/rekap2', [KunjunganController::class, 'rekap2']);
+
+Route::get('/users-pending', [authController::class, 'pendingUsers']);
+Route::post('/approve-user/{id}', [authController::class, 'approveUser']);
+Route::delete('/reject-user/{id}', [authController::class, 'rejectUser']);
 
 Route::get('/siswa/{id}', [authController::class, 'getSiswa']);
 Route::get('/siswa-sd/{id}', [authController::class, 'getSdSiswa']);
@@ -134,3 +141,5 @@ Route::delete('/books-kelas-10/{id}', [BookController::class, 'deleteKelas10Book
 Route::delete('/books-kelas-11/{id}', [BookController::class, 'deleteKelas11Book']);
 Route::delete('/books-kelas-12/{id}', [BookController::class, 'deleteKelas12Book']);
 Route::delete('/books-non-akademik/{id}', [BookController::class, 'deleteNonAkademikBook']);
+});
+

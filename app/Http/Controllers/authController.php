@@ -17,6 +17,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Kunjungan;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 class AuthController extends Controller
@@ -578,40 +580,62 @@ public function getSmkGuru($id)
     
 
     public function login(Request $request)
-{
-    $request->validate([
-        'kode' => 'required',
-        'password' => 'required',
-    ]);
-
-    $user = User::where('kode', $request->kode)->first();
-
-    if (!$user || !Hash::check($request->password, $user->password)) {
-        return response()->json(['message' => 'Unauthorized: Invalid credentials'], 401);
-    }
-
-    // ⛔ Cek apakah user sudah disetujui admin, kecuali kalau dia Admin
-    if ($user->role !== 'Admin' && !$user->is_approved) {
+    {
+        $request->validate([
+            'kode' => 'required',
+            'password' => 'required',
+        ]);
+    
+        $user = User::where('kode', $request->kode)->first();
+    
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Unauthorized: Invalid credentials'], 401);
+        }
+    
+        // ⛔ Cek apakah user sudah disetujui admin, kecuali kalau dia Admin
+        if ($user->role !== 'Admin' && !$user->is_approved) {
+            return response()->json([
+                'message' => 'Akun Anda belum disetujui oleh admin.'
+            ], 403);
+        }
+    
+        // Reset sekolah & kelas kalau rolenya bukan siswa
+        if (in_array($user->role, ['Guru', 'Admin', 'Perpus'])) {
+            $user->sekolah = null;
+            $user->kelas = null;
+            $user->save();
+        }
+    
+        // 🔐 Generate token
+        $token = $user->createToken('auth_token')->plainTextToken;
+    
+        // 📝 Catat kunjungan dengan data tanggal
+        $now = Carbon::now();
+        
+        // Menyimpan kunjungan dengan format tanggal, bulan, dan tahun
+        Kunjungan::create([
+            'user_id' => $user->id,
+            'username' => $user->username,
+            'email' => $user->email,
+            'kode' => $user->kode,
+            'role' => $user->role,
+            'gender' => $user->gender,
+            'sekolah' => $user->sekolah,
+            'kelas' => $user->kelas,
+            'avatar' => $user->avatar,
+            'tanggal_kunjungan' => $now, // Menyimpan waktu kunjungan lengkap
+            'tanggal_kunjungan_hari' => $now->toDateString(), // Format YYYY-MM-DD
+            'tanggal_kunjungan_bulan' => $now->format('M Y'), // Format "Jan 2025"
+            'tanggal_kunjungan_tahun' => $now->year, // Format "2025"
+        ]);
+    
         return response()->json([
-            'message' => 'Akun Anda belum disetujui oleh admin.'
-        ], 403);
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $user,
+        ], 200);
     }
-
-    // Reset sekolah & kelas kalau rolenya bukan siswa
-    if (in_array($user->role, ['Guru', 'Admin', 'Perpus'])) {
-        $user->sekolah = null;
-        $user->kelas = null;
-        $user->save();
-    }
-
-    $token = $user->createToken('auth_token')->plainTextToken;
-
-    return response()->json([
-        'access_token' => $token,
-        'token_type' => 'Bearer',
-        'user' => $user,
-    ], 200);
-}
+    
 
     
 
