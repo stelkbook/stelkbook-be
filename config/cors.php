@@ -15,13 +15,13 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie','public/storage/*','books/*'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie','storage/*','books/*'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['*'],
+    // 'allowed_origins' => ['*'],
 
-    // 'allowed_origins' => ['http://localhost:3000'],
+    'allowed_origins' => ['http://localhost:3000'],
 
     'allowed_origins_patterns' => [],
 
@@ -33,6 +33,6 @@ return [
 
     'supports_credentials' => false,
 
-     //'supports_credentials' => true,
+    //  'supports_credentials' => true,
 
 ];

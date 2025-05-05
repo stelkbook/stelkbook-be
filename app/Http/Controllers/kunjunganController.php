@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 use Illuminate\Support\Facades\DB;
 use App\Models\Kunjungan;
+use Carbon\Carbon;
 
 class KunjunganController extends Controller
 {
@@ -16,39 +17,52 @@ class KunjunganController extends Controller
         ]);
     }
 
-    public function rekap()
-{
-    $harian = DB::table('kunjungans')
-        ->select(DB::raw('DATE(tanggal_kunjungan) as name'), DB::raw('COUNT(*) as pengunjung'))
-        ->whereDate('tanggal_kunjungan', '>=', now()->subDays(6))
-        ->groupBy('name')
-        ->orderBy('name')
-        ->get();
-
-        $bulanan = DB::table('kunjungans')
-        ->select(
-            DB::raw('MONTH(tanggal_kunjungan) as bulan'),
-            DB::raw('MONTHNAME(tanggal_kunjungan) as name'),
-            DB::raw('COUNT(*) as pengunjung')
-        )
-        ->whereYear('tanggal_kunjungan', now()->year)
-        ->groupBy('bulan', 'name')
-        ->orderBy('bulan')
-        ->get();
     
-
-    $tahunan = DB::table('kunjungans')
-        ->select(DB::raw('YEAR(tanggal_kunjungan) as name'), DB::raw('COUNT(*) as pengunjung'))
-        ->groupBy('name')
-        ->orderBy('name')
-        ->get();
-
-    return response()->json([
-        'hari' => $harian,
-        'bulan' => $bulanan,
-        'tahun' => $tahunan,
-    ]);
-}
+    public function rekap()
+    {
+        // Ambil waktu sekarang dalam timezone Asia/Makassar
+        $now = Carbon::now('Asia/Makassar');
+    
+        // Rekap harian 7 hari terakhir
+        $harian = DB::table('kunjungans')
+            ->select(
+                DB::raw('DATE(tanggal_kunjungan) as name'),
+                DB::raw('COUNT(*) as pengunjung')
+            )
+            ->whereDate('tanggal_kunjungan', '>=', $now->copy()->subDays(6)->toDateString())
+            ->groupBy('name')
+            ->orderBy('name')
+            ->get();
+    
+        // Rekap bulanan di tahun berjalan
+        $bulanan = DB::table('kunjungans')
+            ->select(
+                DB::raw('MONTH(tanggal_kunjungan) as bulan'),
+                DB::raw('MONTHNAME(tanggal_kunjungan) as name'),
+                DB::raw('COUNT(*) as pengunjung')
+            )
+            ->whereYear('tanggal_kunjungan', $now->year)
+            ->groupBy('bulan', 'name')
+            ->orderBy('bulan')
+            ->get();
+    
+        // Rekap tahunan semua tahun
+        $tahunan = DB::table('kunjungans')
+            ->select(
+                DB::raw('YEAR(tanggal_kunjungan) as name'),
+                DB::raw('COUNT(*) as pengunjung')
+            )
+            ->groupBy('name')
+            ->orderBy('name')
+            ->get();
+    
+        return response()->json([
+            'hari' => $harian,
+            'bulan' => $bulanan,
+            'tahun' => $tahunan,
+        ]);
+    }
+    
 
 public function indexHariIni()
 {
