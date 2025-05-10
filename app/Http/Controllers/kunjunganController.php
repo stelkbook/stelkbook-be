@@ -184,7 +184,7 @@ public function kunjunganBookHariIni()
 
 
 // Rekap total kunjungan per buku
-   public function rekapKunjunganBook()
+public function rekapKunjunganBook()
 {
     $rekap = DB::table('kunjungan_books')
         ->join('books', 'kunjungan_books.book_id', '=', 'books.id')
@@ -194,13 +194,12 @@ public function kunjunganBookHariIni()
             'books.cover',
             'books.kategori',
             'books.sekolah',
-            DB::raw('COUNT(*) as total_kunjungan')
+            DB::raw('ROUND(COUNT(*) / 2) as total_kunjungan')
         )
         ->groupBy('kunjungan_books.book_id', 'books.judul', 'books.cover', 'books.kategori', 'books.sekolah')
         ->orderByDesc('total_kunjungan')
         ->get();
 
-    // Menggunakan Storage::url() untuk mendapatkan URL cover yang tepat
     $rekap->transform(function ($item) {
         $item->cover_url = $item->cover ? Storage::url($item->cover) : null;
         return $item;
@@ -211,6 +210,7 @@ public function kunjunganBookHariIni()
         'data' => $rekap
     ]);
 }
+
 
 
 }
