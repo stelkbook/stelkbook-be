@@ -733,6 +733,15 @@ class BookController extends Controller
             }
         }
 
+         // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
+        }
+
+
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
@@ -892,6 +901,14 @@ class BookController extends Controller
             } else {
                 $validateData['sekolah'] = $kategoriSekolahMap[$validateData['kategori']] ?? null;
             }
+        }
+
+         // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
         }
 
         // Handle file upload
@@ -1055,6 +1072,14 @@ class BookController extends Controller
             }
         }
 
+          // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
+        }
+
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
@@ -1214,6 +1239,14 @@ class BookController extends Controller
             } else {
                 $validateData['sekolah'] = $kategoriSekolahMap[$validateData['kategori']] ?? null;
             }
+        }
+
+          // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
         }
 
         // Handle file upload
@@ -1377,6 +1410,14 @@ class BookController extends Controller
             }
         }
 
+          // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
+        }
+
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
@@ -1535,6 +1576,14 @@ class BookController extends Controller
             } else {
                 $validateData['sekolah'] = $kategoriSekolahMap[$validateData['kategori']] ?? null;
             }
+        }
+
+          // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
         }
 
         // Handle file upload
@@ -1698,6 +1747,14 @@ class BookController extends Controller
             }
         }
 
+          // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
+        }
+
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
@@ -1857,6 +1914,14 @@ class BookController extends Controller
             } else {
                 $validateData['sekolah'] = $kategoriSekolahMap[$validateData['kategori']] ?? null;
             }
+        }
+
+          // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
         }
 
         // Handle file upload
@@ -2019,6 +2084,14 @@ class BookController extends Controller
             }
         }
 
+          // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
+        }
+
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
@@ -2174,6 +2247,14 @@ class BookController extends Controller
             }
         }
 
+          // Jika cover tidak dikirim, gunakan cover yang sudah ada
+        if (!isset($validateData['cover'])) {
+            $validateData['cover'] = $book->cover;
+        }
+        if (!isset($validateData['isi'])) {
+            $validateData['isi'] = $book->isi;
+        }
+
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
@@ -2315,72 +2396,77 @@ class BookController extends Controller
             'isi' => 'sometimes|file|mimes:pdf',
         ]);
 
-        // Handle kategori update logic
-        if (isset($validateData['kategori']) && $validateData['kategori'] !== $oldKategori) {
-            KunjunganBook::where('book_id', $book->id)->update([
-                'judul' => $validateData['judul'] ?? $book->judul,
-                'deskripsi' => $validateData['deskripsi'] ?? $book->deskripsi,
-                'sekolah' => $validateData['sekolah'] ?? $book->sekolah,
-                'kategori' => $validateData['kategori'] ?? $book->kategori,
-                'penerbit' => $validateData['penerbit'] ?? $book->penerbit,
-                'penulis' => $validateData['penulis'] ?? $book->penulis,
-                'tahun' => $validateData['tahun'] ?? $book->tahun,
-                'ISBN' => $validateData['ISBN'] ?? $book->ISBN,
-                'cover' => $validateData['cover'] ?? $book->cover,
-                'tanggal_kunjungan' => now()->toDateString(),
-            ]);
+        // Gunakan data lama jika tidak dikirim
+        $validateData['cover'] = $validateData['cover'] ?? $book->cover;
+        $validateData['isi'] = $validateData['isi'] ?? $book->isi;
 
-            // Hapus buku dari kategori lama
-            if ($oldKategori !== 'NA') {
-                $classMapping = [
-                    'I' => Book1Class::class,
-                    'II' => Book2Class::class,
-                    'III' => Book3Class::class,
-                    'IV' => Book4Class::class,
-                    'V' => Book5Class::class,
-                    'VI' => Book6Class::class,
-                    'VII' => Book7Class::class,
-                    'VIII' => Book8Class::class,
-                    'IX' => Book9Class::class,
-                    'X' => Book10Class::class,
-                    'XI' => Book11Class::class,
-                    'XII' => Book12Class::class,
-                ];
-                if (isset($classMapping[$oldKategori])) {
-                    $classMapping[$oldKategori]::where('book_id', $book->id)->delete();
-                }
-            } elseif ($oldKategori === 'NA') {
+        // Update data utama di tabel books
+        $book->update($validateData);
+
+        // Mapping kategori ke model
+        $classMapping = [
+            'I' => Book1Class::class,
+            'II' => Book2Class::class,
+            'III' => Book3Class::class,
+            'IV' => Book4Class::class,
+            'V' => Book5Class::class,
+            'VI' => Book6Class::class,
+            'VII' => Book7Class::class,
+            'VIII' => Book8Class::class,
+            'IX' => Book9Class::class,
+            'X' => Book10Class::class,
+            'XI' => Book11Class::class,
+            'XII' => Book12Class::class,
+        ];
+
+        // Jika kategori berubah
+        if (isset($validateData['kategori']) && $validateData['kategori'] !== $oldKategori) {
+            // Hapus dari tabel lama
+            if ($oldKategori === 'NA') {
                 BookNonAkademik::where('book_id', $book->id)->delete();
+            } elseif (isset($classMapping[$oldKategori])) {
+                $classMapping[$oldKategori]::where('book_id', $book->id)->delete();
             }
 
-            // Update buku dengan kategori baru
+            // Masukkan ke tabel baru
             if ($validateData['kategori'] === 'NA') {
-                BookNonAkademik::create($validateData);
+                BookNonAkademik::create(array_merge(
+                    ['book_id' => $book->id],
+                    $validateData
+                ));
                 BookSiswa::where('book_id', $book->id)->delete();
                 BookGuru::where('book_id', $book->id)->delete();
             } else {
                 BookSiswa::updateOrCreate(['book_id' => $book->id], $validateData);
                 BookGuru::updateOrCreate(['book_id' => $book->id], $validateData);
                 if (isset($classMapping[$validateData['kategori']])) {
-                    $classMapping[$validateData['kategori']]::create($validateData);
+                    $classMapping[$validateData['kategori']]::create(array_merge(
+                        ['book_id' => $book->id],
+                        $validateData
+                    ));
                 }
             }
         } else {
-            // Update tabel terkait jika kategori tidak berubah
-            BookNonAkademik::updateOrCreate(['book_id' => $book->id], $validateData);
-            KunjunganBook::where('book_id', $book->id)->update([
-                'judul' => $validateData['judul'] ?? $book->judul,
-                'deskripsi' => $validateData['deskripsi'] ?? $book->deskripsi,
-                'sekolah' => $validateData['sekolah'] ?? $book->sekolah,
-                'kategori' => $validateData['kategori'] ?? $book->kategori,
-                'penerbit' => $validateData['penerbit'] ?? $book->penerbit,
-                'penulis' => $validateData['penulis'] ?? $book->penulis,
-                'tahun' => $validateData['tahun'] ?? $book->tahun,
-                'ISBN' => $validateData['ISBN'] ?? $book->ISBN,
-                'cover' => $validateData['cover'] ?? $book->cover,
-                'tanggal_kunjungan' => now()->toDateString(),
-            ]);
+            // Jika kategori tidak berubah
+            BookNonAkademik::updateOrCreate(
+                ['book_id' => $book->id],
+                $validateData
+            );
         }
+
+        // Update kunjungan dan perpustakaan
+        KunjunganBook::where('book_id', $book->id)->update([
+            'judul' => $validateData['judul'] ?? $book->judul,
+            'deskripsi' => $validateData['deskripsi'] ?? $book->deskripsi,
+            'sekolah' => $validateData['sekolah'] ?? $book->sekolah,
+            'kategori' => $validateData['kategori'] ?? $book->kategori,
+            'penerbit' => $validateData['penerbit'] ?? $book->penerbit,
+            'penulis' => $validateData['penulis'] ?? $book->penulis,
+            'tahun' => $validateData['tahun'] ?? $book->tahun,
+            'ISBN' => $validateData['ISBN'] ?? $book->ISBN,
+            'cover' => $validateData['cover'] ?? $book->cover,
+            'tanggal_kunjungan' => now()->toDateString(),
+        ]);
 
         BookPerpus::updateOrCreate(['book_id' => $book->id], $validateData);
 
@@ -2389,8 +2475,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku Non Akademik berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => Storage::url($book->isi),
+            'cover_url' => Storage::url($book->cover),
         ]);
     } catch (ModelNotFoundException $e) {
         DB::rollBack();
@@ -2403,6 +2489,7 @@ class BookController extends Controller
         ], 500);
     }
 }
+
 
     
     
