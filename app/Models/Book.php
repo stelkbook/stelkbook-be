@@ -116,4 +116,10 @@ class Book extends Model
 {
     return $this->hasMany(Book12Class::class, 'book_id');
 }
+
+public function kunjunganBooks()
+{
+    return $this->hasMany(KunjunganBook::class);
+}
+
 }
