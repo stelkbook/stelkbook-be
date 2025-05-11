@@ -2452,6 +2452,11 @@ class BookController extends Controller
                 ['book_id' => $book->id],
                 $validateData
             );
+
+            if ($book->kategori !== 'NA') {
+        BookSiswa::updateOrCreate(['book_id' => $book->id], $validateData);
+        BookGuru::updateOrCreate(['book_id' => $book->id], $validateData);
+    }
         }
 
         // Update kunjungan dan perpustakaan
@@ -3043,7 +3048,7 @@ public function getGuruBookById($id)
         }
 
         KunjunganBook::create([
-            'book_id' => $book->id,
+            'book_id' => $book->book_id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -3078,7 +3083,7 @@ public function getPerpusBookById($id)
         }
 
         KunjunganBook::create([
-            'book_id' => $book->id,
+            'book_id' => $book->book_id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
