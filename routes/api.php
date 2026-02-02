@@ -33,11 +33,14 @@ Route::get('/guru-smk',[authController::class, 'smkGuru']);
 Route::get('/perpus',[authController::class, 'perpus']);
 Route::post('/logout', [authController::class, 'logout']);
 Route::post('/change-password', [authController::class, 'changePassword']);
+
 Route::get('/kunjungans', [KunjunganController::class, 'indexHariIni']);
 Route::get('/data-kunjungans', [KunjunganController::class, 'index']);
 Route::get('/rekap-kunjungan-books', [KunjunganController::class, 'index']); // Fix for 404 error
 Route::get('/kunjungans/rekap', [KunjunganController::class, 'rekap']);
 Route::get('/kunjungans/rekap2', [KunjunganController::class, 'rekap2']);
+
+  
 
 Route::get('/users-pending', [authController::class, 'pendingUsers']);
 Route::post('/approve-user/{id}', [authController::class, 'approveUser']);
@@ -81,6 +84,9 @@ Route::get('/books', [BookController::class, 'index']); // Ambil semua buku
 Route::get('/books/{id}', [BookController::class, 'show']); // Ambil buku berdasarkan ID
 Route::put('/books/{id}', [BookController::class, 'update']); // Update buku berdasarkan ID
 Route::delete('/books/{id}', [BookController::class, 'destroy']); // Hapus buku berdasarkan ID
+
+Route::get('/books/{id}/isi', [BookController::class, 'getIsiPdf']);
+
   
 Route::get('/books-kelas-1', [BookController::class, 'getKelas1Books']);
 Route::get('/books-kelas-2', [BookController::class, 'getKelas2Books']);
@@ -95,6 +101,10 @@ Route::get('/books-kelas-10', [BookController::class, 'getKelas10Books']);
 Route::get('/books-kelas-11', [BookController::class, 'getKelas11Books']);
 Route::get('/books-kelas-12', [BookController::class, 'getKelas12Books']);
 Route::get('/books-non-akademik', [BookController::class, 'getNonAkademikBooks']);
+
+Route::get('/kunjungan-books', [KunjunganController::class, 'indexKunjunganBook']);
+Route::get('/kunjungan-books/hari-ini', [KunjunganController::class, 'kunjunganBookHariIni']);
+Route::get('/rekap-kunjungan-books', [KunjunganController::class, 'rekapKunjunganBook']); 
 
 Route::get('/books-siswa', [BookController::class, 'getSiswaBooks']); 
 Route::get('/books-guru', [BookController::class, 'getGuruBooks']);
