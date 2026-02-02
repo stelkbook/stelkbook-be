@@ -136,9 +136,10 @@ class BookController extends Controller
     
     
 
-    public function index()
+    public function index(Request $request)
     {
-        $books = Book::all(); // Ambil semua buku dari database
+        $perPage = $request->input('per_page', 12); // Default 12 items per page
+        $books = Book::latest()->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -2565,72 +2566,100 @@ class BookController extends Controller
     }
     
 
+    private function filterBooks($books) {
+        try {
+            return $books->filter(function ($book) {
+                // Ensure isi and cover properties exist
+                if (!isset($book->isi) || !isset($book->cover)) {
+                    return false;
+                }
+
+                // Check PDF existence
+                if (empty($book->isi) || !Storage::disk('public')->exists($book->isi)) {
+                    return false;
+                }
+
+                // Check Cover existence
+                if (empty($book->cover) || !Storage::disk('public')->exists($book->cover)) {
+                    return false;
+                }
+
+                return true;
+            })->values();
+        } catch (Exception $e) {
+            // Log the error for debugging
+            \Illuminate\Support\Facades\Log::error('FilterBooks Error: ' . $e->getMessage());
+            // Return empty collection on error to prevent 500
+            return collect([]);
+        }
+    }
+
       public function getSiswaBooks()
     {
-        return response()->json(DB::table('book_siswas')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_siswas')->get()), 200);
     }
       public function getKelas1Books()
     {
-        return response()->json(DB::table('book_1_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_1_classes')->get()), 200);
     }
       public function getKelas2Books()
     {
-        return response()->json(DB::table('book_2_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_2_classes')->get()), 200);
     }
       public function getKelas3Books()
     {
-        return response()->json(DB::table('book_3_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_3_classes')->get()), 200);
     }
       public function getKelas4Books()
     {
-        return response()->json(DB::table('book_4_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_4_classes')->get()), 200);
     }
       public function getKelas5Books()
     {
-        return response()->json(DB::table('book_5_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_5_classes')->get()), 200);
     }
       public function getKelas6Books()
     {
-        return response()->json(DB::table('book_6_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_6_classes')->get()), 200);
     }
       public function getKelas7Books()
     {
-        return response()->json(DB::table('book_7_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_7_classes')->get()), 200);
     }
       public function getKelas8Books()
     {
-        return response()->json(DB::table('book_8_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_8_classes')->get()), 200);
     }
       public function getKelas9Books()
     {
-        return response()->json(DB::table('book_9_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_9_classes')->get()), 200);
     }
       public function getKelas10Books()
     {
-        return response()->json(DB::table('book_10_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_10_classes')->get()), 200);
     }
       public function getKelas11Books()
     {
-        return response()->json(DB::table('book_11_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_11_classes')->get()), 200);
     }
       public function getKelas12Books()
     {
-        return response()->json(DB::table('book_12_classes')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_12_classes')->get()), 200);
     }
 
     public function getGuruBooks()
     {
-        return response()->json(DB::table('book_gurus')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_gurus')->get()), 200);
     }
 
     public function getPerpusBooks()
     {
-        return response()->json(DB::table('book_perpuses')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_perpuses')->get()), 200);
     }
 
     public function getNonAkademikBooks()
     {
-        return response()->json(DB::table('book_non_akademiks')->get(), 200);
+        return response()->json($this->filterBooks(DB::table('book_non_akademiks')->get()), 200);
     }
 
     // 🔍 GET Buku berdasarkan ID di tabel SISWA

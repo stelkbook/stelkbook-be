@@ -4,15 +4,20 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\authController;
 use App\Http\Controllers\BookController;
+use App\Http\Controllers\PdfController;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\KunjunganController;
 
 
 
 //authControlller
+Route::get('/debug-users', function() {
+    return App\Models\User::all(['id', 'username', 'kode', 'role', 'is_approved']);
+});
 Route::post('/register', [authController::class, 'register']);
 Route::post('/register2', [authController::class, 'register2']);
 Route::post('/login', [authController::class, 'login'])->name('login');
+Route::get('/pdf/{filename}', [PdfController::class, 'serve'])->where('filename', '.*');
 
 
 Route::middleware('auth:sanctum')->group(function() {
@@ -31,6 +36,7 @@ Route::post('/change-password', [authController::class, 'changePassword']);
 
 Route::get('/kunjungans', [KunjunganController::class, 'indexHariIni']);
 Route::get('/data-kunjungans', [KunjunganController::class, 'index']);
+Route::get('/rekap-kunjungan-books', [KunjunganController::class, 'index']); // Fix for 404 error
 Route::get('/kunjungans/rekap', [KunjunganController::class, 'rekap']);
 Route::get('/kunjungans/rekap2', [KunjunganController::class, 'rekap2']);
 
@@ -76,7 +82,7 @@ Route::post('/update-perpus/{id}',[authController::class, 'updatePerpus']);
 Route::post('/books', [BookController::class, 'store']); // Tambah buku
 Route::get('/books', [BookController::class, 'index']); // Ambil semua buku
 Route::get('/books/{id}', [BookController::class, 'show']); // Ambil buku berdasarkan ID
-Route::post('/books/{id}', [BookController::class, 'update']); // Update buku berdasarkan ID
+Route::put('/books/{id}', [BookController::class, 'update']); // Update buku berdasarkan ID
 Route::delete('/books/{id}', [BookController::class, 'destroy']); // Hapus buku berdasarkan ID
 
 Route::get('/books/{id}/isi', [BookController::class, 'getIsiPdf']);
@@ -105,24 +111,24 @@ Route::get('/books-guru', [BookController::class, 'getGuruBooks']);
 Route::delete('/books-guru/{id}', [BookController::class, 'deleteGuruBookById']);
 Route::get('/books-perpus', [BookController::class, 'getPerpusBooks']);
 
-Route::post('/books-kelas-1/{id}', [BookController::class, 'updateKelas1Book']);
-Route::post('/books-kelas-2/{id}', [BookController::class, 'updateKelas2Book']);
-Route::post('/books-kelas-3/{id}', [BookController::class, 'updateKelas3Book']);
-Route::post('/books-kelas-4/{id}', [BookController::class, 'updateKelas4Book']);
-Route::post('/books-kelas-5/{id}', [BookController::class, 'updateKelas5Book']);
-Route::post('/books-kelas-6/{id}', [BookController::class, 'updateKelas6Book']);
-Route::post('/books-kelas-7/{id}', [BookController::class, 'updateKelas7Book']);
-Route::post('/books-kelas-8/{id}', [BookController::class, 'updateKelas8Book']);
-Route::post('/books-kelas-9/{id}', [BookController::class, 'updateKelas9Book']);
-Route::post('/books-kelas-10/{id}', [BookController::class, 'updateKelas10Book']);
-Route::post('/books-kelas-11/{id}', [BookController::class, 'updateKelas11Book']);
-Route::post('/books-kelas-12/{id}', [BookController::class, 'updateKelas12Book']);
-Route::post('/books-non-akademik/{id}', [BookController::class, 'updateNonAkademikBook']);
+Route::put('/books-kelas-1/{id}', [BookController::class, 'updateKelas1Book']);
+Route::put('/books-kelas-2/{id}', [BookController::class, 'updateKelas2Book']);
+Route::put('/books-kelas-3/{id}', [BookController::class, 'updateKelas3Book']);
+Route::put('/books-kelas-4/{id}', [BookController::class, 'updateKelas4Book']);
+Route::put('/books-kelas-5/{id}', [BookController::class, 'updateKelas5Book']);
+Route::put('/books-kelas-6/{id}', [BookController::class, 'updateKelas6Book']);
+Route::put('/books-kelas-7/{id}', [BookController::class, 'updateKelas7Book']);
+Route::put('/books-kelas-8/{id}', [BookController::class, 'updateKelas8Book']);
+Route::put('/books-kelas-9/{id}', [BookController::class, 'updateKelas9Book']);
+Route::put('/books-kelas-10/{id}', [BookController::class, 'updateKelas10Book']);
+Route::put('/books-kelas-11/{id}', [BookController::class, 'updateKelas11Book']);
+Route::put('/books-kelas-12/{id}', [BookController::class, 'updateKelas12Book']);
+Route::put('/books-non-akademik/{id}', [BookController::class, 'updateNonAkademikBook']);
 
 
 // 📌 GET Buku Berdasarkan ID
 Route::get('/books/siswa/{id}', [BookController::class, 'getSiswaBookById']);
-Route::get('books-kelas-1/{id}', [BookController::class, 'getKelas1BookById']);
+Route::get('/books-kelas-1/{id}', [BookController::class, 'getKelas1BookById']);
 Route::get('/books-kelas-2/{id}', [BookController::class, 'getKelas2BookById']);
 Route::get('/books-kelas-3/{id}', [BookController::class, 'getKelas3BookById']);
 Route::get('/books-kelas-4/{id}', [BookController::class, 'getKelas4BookById']);

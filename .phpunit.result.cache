@@ -1,0 +1,1 @@
+{"version":1,"defects":[],"times":{"Tests\\Feature\\PdfControllerTest::test_can_serve_pdf_file":1.328,"Tests\\Feature\\PdfControllerTest::test_returns_404_if_file_not_found":0.004,"Tests\\Feature\\PdfControllerTest::test_prevents_directory_traversal":0.002}}

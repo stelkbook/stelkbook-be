@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class DatabaseSeeder extends Seeder
 {
@@ -12,11 +14,40 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // \App\Models\User::factory(10)->create();
+        // Admin
+        User::create([
+            'username' => 'admin',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('admin123'),
+            'kode' => 'admin',
+            'role' => 'Admin',
+            'gender' => 'Laki-Laki',
+            'is_approved' => true,
+        ]);
 
-        // \App\Models\User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
+        // Siswa
+        User::create([
+            'username' => 'siswa',
+            'email' => 'siswa@example.com',
+            'password' => Hash::make('siswa123'),
+            'kode' => 'siswa',
+            'role' => 'Siswa',
+            'gender' => 'Laki-Laki',
+            'sekolah' => 'SMK',
+            'kelas' => 'X',
+            'is_approved' => true,
+        ]);
+
+        // Guru
+        User::create([
+            'username' => 'guru',
+            'email' => 'guru@example.com',
+            'password' => Hash::make('guru123'),
+            'kode' => 'guru',
+            'role' => 'Guru',
+            'gender' => 'Perempuan',
+            'sekolah' => 'SMK',
+            'is_approved' => true,
+        ]);
     }
 }
