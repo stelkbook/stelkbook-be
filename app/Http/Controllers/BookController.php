@@ -28,6 +28,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
 use App\Services\SupabaseStorageService;
 
+use Illuminate\Support\Facades\Log;
+
 class BookController extends Controller
 {
     protected $supabase;
@@ -39,20 +41,23 @@ class BookController extends Controller
 
     public function store(Request $request)
     {
+        Log::info('BookController@store: Start', $request->all());
+        
+        $validateData = $request->validate([
+            'judul' => 'required|unique:books',
+            'deskripsi' => 'required',
+            'sekolah' => 'nullable|in:SD,SMP,SMK',
+            'kategori' => 'required|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII,NA',
+            'penerbit' => 'required',
+            'penulis' => 'required',
+            'tahun' => 'required|digits:4',
+            'ISBN' => 'required|string|unique:books',
+            'cover' => 'required|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'required|file|mimes:pdf|max:51200',
+        ]);
+        Log::info('BookController@store: Validation passed');
+
         try {
-            $validateData = $request->validate([
-                'judul' => 'required|unique:books',
-                'deskripsi' => 'required',
-                'sekolah' => 'nullable|in:SD,SMP,SMK',
-                'kategori' => 'required|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII,NA',
-                'penerbit' => 'required',
-                'penulis' => 'required',
-                'tahun' => 'required|digits:4',
-                'ISBN' => 'required|string|unique:books',
-                'cover' => 'required|image|mimes:jpeg,png,jpg,webp|max:10240',
-                'isi' => 'required|file|mimes:pdf|max:51200',
-            ]);
-    
             // Otomatis set sekolah berdasarkan kategori jika bukan NA
             if ($validateData['kategori'] === 'NA') {
                 $validateData['sekolah'] = null;
@@ -81,23 +86,29 @@ class BookController extends Controller
     
             // Simpan file cover
             if ($request->hasFile('cover')) {
+                Log::info('BookController@store: Uploading cover...');
                 $coverFile = $request->file('cover');
                 $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
                 if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
                 $validateData['cover'] = $coverUrl;
+                Log::info('BookController@store: Cover uploaded', ['url' => $coverUrl]);
             }
     
             // Simpan file isi (PDF)
             if ($request->hasFile('isi')) {
+                Log::info('BookController@store: Uploading PDF...');
                 $isiFile = $request->file('isi');
                 $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
                 if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
                 $validateData['isi'] = $isiUrl;
+                Log::info('BookController@store: PDF uploaded', ['url' => $isiUrl]);
             }
     
             // Simpan ke tabel utama
+            Log::info('BookController@store: Creating Book record...');
             $book = Book::create($validateData);
             $validateData['book_id'] = $book->id;
+            Log::info('BookController@store: Book created', ['id' => $book->id]);
     
             // Simpan ke tabel sesuai kategori
             if ($validateData['kategori'] === 'NA') {
@@ -123,12 +134,14 @@ class BookController extends Controller
             BookPerpus::create($validateData);
             // BookGuru::create($validateData);
             // BookSiswa::create($validateData);
-
+            
             // Buku non-NA juga masuk ke Guru & Siswa
             if ($validateData['kategori'] !== 'NA') {
                 BookSiswa::create($validateData);
                 BookGuru::create($validateData);
             }
+
+            Log::info('BookController@store: Done');
     
             return response()->json([
                 'message' => 'Buku berhasil ditambahkan',
@@ -137,6 +150,7 @@ class BookController extends Controller
                 'cover_url' => $book->cover,
             ], 201);
         } catch (Exception $e) {
+            Log::error('BookController@store: Error', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json([
                 'message' => 'Terjadi kesalahan saat menambahkan buku',
                 'error' => $e->getMessage(),

@@ -30,7 +30,7 @@ class SupabaseStorageService
         $endpoint = "{$this->url}/storage/v1/object/{$bucket}/{$path}";
 
         try {
-            $response = Http::withHeaders([
+            $response = Http::withOptions(['verify' => false])->withHeaders([
                 'Authorization' => 'Bearer ' . $this->key,
                 'Content-Type' => $file->getMimeType(),
                 'x-upsert' => 'true', // Allow overwriting
@@ -44,7 +44,7 @@ class SupabaseStorageService
                 return "{$this->url}/storage/v1/object/public/{$bucket}/{$path}";
             }
 
-            Log::error('Supabase Upload Error: ' . $response->body());
+            Log::error('Supabase Upload Error: ' . $response->status() . ' ' . $response->body());
             return null;
         } catch (\Exception $e) {
             Log::error('Supabase Upload Exception: ' . $e->getMessage());
