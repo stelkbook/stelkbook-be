@@ -30,12 +30,18 @@ return new class extends Migration
             'book_10_classes',
             'book_11_classes',
             'book_12_classes',
+            'kunjungan_books',
         ];
 
+        $driver = DB::connection()->getDriverName();
+
         foreach ($tables as $table) {
-            // Using raw SQL because doctrine/dbal is likely not installed
-            // Modifying ISBN to VARCHAR(255) to support proper ISBN formats (including hyphens and length > 11 digits)
-            DB::statement("ALTER TABLE `{$table}` MODIFY `ISBN` VARCHAR(255) NOT NULL");
+            // Using raw SQL because doctrine/dbal might not be installed
+            if ($driver === 'mysql') {
+                DB::statement("ALTER TABLE `{$table}` MODIFY `ISBN` VARCHAR(255) NOT NULL");
+            } elseif ($driver === 'pgsql') {
+                DB::statement('ALTER TABLE "' . $table . '" ALTER COLUMN "ISBN" TYPE VARCHAR(255)');
+            }
         }
     }
 
@@ -64,10 +70,16 @@ return new class extends Migration
             'book_12_classes',
         ];
 
+        $driver = DB::connection()->getDriverName();
+
         foreach ($tables as $table) {
             try {
-                // Attempt to revert to INT, but this might fail if data contains non-numeric chars
-                DB::statement("ALTER TABLE `{$table}` MODIFY `ISBN` INT NOT NULL");
+                if ($driver === 'mysql') {
+                    DB::statement("ALTER TABLE `{$table}` MODIFY `ISBN` INT NOT NULL");
+                } elseif ($driver === 'pgsql') {
+                    // Casting might fail if non-numeric data exists, using USING clause to be safe or explicit
+                    DB::statement('ALTER TABLE "' . $table . '" ALTER COLUMN "ISBN" TYPE INTEGER USING "ISBN"::integer');
+                }
             } catch (\Exception $e) {
                 // Log or ignore if data prevents reversion
             }
