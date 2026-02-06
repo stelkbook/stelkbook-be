@@ -2565,8 +2565,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku Non Akademik berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => Storage::url($book->isi),
-            'cover_url' => Storage::url($book->cover),
+            'pdf_url' => $book->pdf_url,
+            'cover_url' => $book->cover_url,
         ]);
     } catch (ModelNotFoundException $e) {
         DB::rollBack();
@@ -2674,10 +2674,13 @@ class BookController extends Controller
                     return false;
                 }
                 
-                // If it's NOT a URL, check local storage
-                if (!str_starts_with($book->isi, 'http') && !Storage::disk('public')->exists($book->isi)) {
-                    \Illuminate\Support\Facades\Log::warning('FilterBooks: Book ID ' . $book->id . ' isi not found locally: ' . $book->isi);
-                    return false;
+                // If it's NOT a URL, check local storage ONLY if we are using the public disk
+                // This prevents 404s when files are on S3/Supabase but stored as relative paths
+                if (!str_starts_with($book->isi, 'http') && config('filesystems.default') === 'public') {
+                    if (!Storage::disk('public')->exists($book->isi)) {
+                        \Illuminate\Support\Facades\Log::warning('FilterBooks: Book ID ' . $book->id . ' isi not found locally: ' . $book->isi);
+                        return false;
+                    }
                 }
 
                 // Check Cover existence
@@ -2686,10 +2689,12 @@ class BookController extends Controller
                     return false;
                 }
 
-                // If it's NOT a URL, check local storage
-                if (!str_starts_with($book->cover, 'http') && !Storage::disk('public')->exists($book->cover)) {
-                    \Illuminate\Support\Facades\Log::warning('FilterBooks: Book ID ' . $book->id . ' cover not found locally: ' . $book->cover);
-                    return false;
+                // If it's NOT a URL, check local storage ONLY if we are using the public disk
+                if (!str_starts_with($book->cover, 'http') && config('filesystems.default') === 'public') {
+                    if (!Storage::disk('public')->exists($book->cover)) {
+                        \Illuminate\Support\Facades\Log::warning('FilterBooks: Book ID ' . $book->id . ' cover not found locally: ' . $book->cover);
+                        return false;
+                    }
                 }
 
                 return true;
