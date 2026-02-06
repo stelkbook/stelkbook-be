@@ -3,22 +3,13 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
 class SupabaseStorageService
 {
-    protected $url;
-    protected $key;
-
-    public function __construct()
-    {
-        $this->url = config('services.supabase.url');
-        $this->key = config('services.supabase.key');
-    }
-
     /**
-     * Upload file to Supabase Storage
+     * Upload file to Supabase Storage (S3)
      *
      * @param UploadedFile $file
      * @param string $bucket
@@ -27,33 +18,27 @@ class SupabaseStorageService
      */
     public function upload(UploadedFile $file, $bucket, $path)
     {
-        $endpoint = "{$this->url}/storage/v1/object/{$bucket}/{$path}";
+        $disk = $this->getDiskName($bucket);
 
         try {
-            $response = Http::withOptions(['verify' => false])->withHeaders([
-                'Authorization' => 'Bearer ' . $this->key,
-                'Content-Type' => $file->getMimeType(),
-                'x-upsert' => 'true', // Allow overwriting
-            ])->withBody(
-                file_get_contents($file->getRealPath()),
-                $file->getMimeType()
-            )->post($endpoint);
+            // Upload using S3 driver
+            $result = Storage::disk($disk)->put($path, file_get_contents($file->getRealPath()));
 
-            if ($response->successful()) {
-                // Return the public URL
-                return "{$this->url}/storage/v1/object/public/{$bucket}/{$path}";
+            if ($result) {
+                // Return the configured public URL
+                return Storage::disk($disk)->url($path);
             }
 
-            Log::error('Supabase Upload Error: ' . $response->status() . ' ' . $response->body());
+            Log::error("Supabase S3 Upload Failed for $path on disk $disk");
             return null;
         } catch (\Exception $e) {
-            Log::error('Supabase Upload Exception: ' . $e->getMessage());
+            Log::error('Supabase S3 Upload Exception: ' . $e->getMessage());
             return null;
         }
     }
 
     /**
-     * Delete file from Supabase Storage
+     * Delete file from Supabase Storage (S3)
      *
      * @param string $bucket
      * @param string $url Full URL or path
@@ -61,21 +46,41 @@ class SupabaseStorageService
      */
     public function delete($bucket, $url)
     {
-        // Extract path from URL if necessary
-        $publicUrlPrefix = "{$this->url}/storage/v1/object/public/{$bucket}/";
-        $path = str_replace($publicUrlPrefix, '', $url);
-
-        $endpoint = "{$this->url}/storage/v1/object/{$bucket}/{$path}";
+        $disk = $this->getDiskName($bucket);
 
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->key,
-            ])->delete($endpoint);
+            // Get the base URL configured for this disk
+            $prefix = Storage::disk($disk)->url('');
+            
+            // Extract path from URL if it's a full URL
+            if (strpos($url, 'http') === 0) {
+                 $path = str_replace($prefix, '', $url);
+            } else {
+                 $path = $url;
+            }
 
-            return $response->successful();
+            // Clean up path
+            $path = ltrim($path, '/');
+
+            return Storage::disk($disk)->delete($path);
         } catch (\Exception $e) {
-            Log::error('Supabase Delete Exception: ' . $e->getMessage());
+            Log::error('Supabase S3 Delete Exception: ' . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Get the filesystem disk name based on the bucket
+     *
+     * @param string $bucket
+     * @return string
+     */
+    protected function getDiskName($bucket)
+    {
+        return match ($bucket) {
+            'img_cover' => 'supabase_cover',
+            'pdf_buku' => 'supabase_pdf',
+            default => 's3',
+        };
     }
 }
