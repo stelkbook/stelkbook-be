@@ -26,25 +26,38 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Exception;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
+use App\Services\SupabaseStorageService;
+
+use Illuminate\Support\Facades\Log;
 
 class BookController extends Controller
 {
+    protected $supabase;
+
+    public function __construct(SupabaseStorageService $supabase)
+    {
+        $this->supabase = $supabase;
+    }
+
     public function store(Request $request)
     {
+        Log::info('BookController@store: Start', $request->all());
+        
+        $validateData = $request->validate([
+            'judul' => 'required|unique:books',
+            'deskripsi' => 'required',
+            'sekolah' => 'nullable|in:SD,SMP,SMK',
+            'kategori' => 'required|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII,NA',
+            'penerbit' => 'required',
+            'penulis' => 'required',
+            'tahun' => 'required|digits:4',
+            'ISBN' => 'required|string|unique:books',
+            'cover' => 'required|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'required|file|mimes:pdf|max:51200',
+        ]);
+        Log::info('BookController@store: Validation passed');
+
         try {
-            $validateData = $request->validate([
-                'judul' => 'required|unique:books',
-                'deskripsi' => 'required',
-                'sekolah' => 'nullable|in:SD,SMP,SMK',
-                'kategori' => 'required|in:I,II,III,IV,V,VI,VII,VIII,IX,X,XI,XII,NA',
-                'penerbit' => 'required',
-                'penulis' => 'required',
-                'tahun' => 'required|digits:4',
-                'ISBN' => 'required|string|unique:books',
-                'cover' => 'required|image|mimes:jpeg,png,jpg',
-                'isi' => 'required|file|mimes:pdf',
-            ]);
-    
             // Otomatis set sekolah berdasarkan kategori jika bukan NA
             if ($validateData['kategori'] === 'NA') {
                 $validateData['sekolah'] = null;
@@ -73,21 +86,29 @@ class BookController extends Controller
     
             // Simpan file cover
             if ($request->hasFile('cover')) {
+                Log::info('BookController@store: Uploading cover...');
                 $coverFile = $request->file('cover');
-                $coverFileName = $coverFile->getClientOriginalName();
-                $validateData['cover'] = $coverFile->storeAs('covers', $coverFileName, 'public');
+                $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+                if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+                $validateData['cover'] = $coverUrl;
+                Log::info('BookController@store: Cover uploaded', ['url' => $coverUrl]);
             }
     
             // Simpan file isi (PDF)
             if ($request->hasFile('isi')) {
+                Log::info('BookController@store: Uploading PDF...');
                 $isiFile = $request->file('isi');
-                $isiFileName = $isiFile->getClientOriginalName();
-                $validateData['isi'] = $isiFile->storeAs('books', $isiFileName, 'public');
+                $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+                if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+                $validateData['isi'] = $isiUrl;
+                Log::info('BookController@store: PDF uploaded', ['url' => $isiUrl]);
             }
     
             // Simpan ke tabel utama
+            Log::info('BookController@store: Creating Book record...');
             $book = Book::create($validateData);
             $validateData['book_id'] = $book->id;
+            Log::info('BookController@store: Book created', ['id' => $book->id]);
     
             // Simpan ke tabel sesuai kategori
             if ($validateData['kategori'] === 'NA') {
@@ -113,20 +134,23 @@ class BookController extends Controller
             BookPerpus::create($validateData);
             // BookGuru::create($validateData);
             // BookSiswa::create($validateData);
-
+            
             // Buku non-NA juga masuk ke Guru & Siswa
             if ($validateData['kategori'] !== 'NA') {
                 BookSiswa::create($validateData);
                 BookGuru::create($validateData);
             }
+
+            Log::info('BookController@store: Done');
     
             return response()->json([
                 'message' => 'Buku berhasil ditambahkan',
                 'book' => $book,
-                'pdf_url' => Storage::url($book->isi),
-                'cover_url' => Storage::url($book->cover),
+                'pdf_url' => $book->isi,
+                'cover_url' => $book->cover,
             ], 201);
         } catch (Exception $e) {
+            Log::error('BookController@store: Error', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json([
                 'message' => 'Terjadi kesalahan saat menambahkan buku',
                 'error' => $e->getMessage(),
@@ -170,11 +194,7 @@ class BookController extends Controller
                 'cover' => $book->cover,
                 'tanggal_kunjungan' => now()->toDateString(),
             ]);
-    
-            // Tambahkan URL file
-            $book->pdf_url = Storage::url($book->isi);
-            $book->cover_url = Storage::url($book->cover);
-    
+
             return response()->json($book, 200);
         } catch (Exception $e) {
             return response()->json(['message' => 'Terjadi kesalahan', 'error' => $e->getMessage()], 500);
@@ -189,6 +209,10 @@ class BookController extends Controller
             
             if (!$book->isi) {
                 return response()->json(['message' => 'File PDF tidak tersedia'], 404);
+            }
+
+            if (str_starts_with($book->isi, 'http')) {
+                return redirect($book->isi);
             }
     
             $path = storage_path('app/public/' . $book->isi);
@@ -225,8 +249,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Jika cover tidak dikirim, gunakan cover yang sudah ada
@@ -244,18 +268,30 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                if (str_starts_with($book->cover, 'http')) {
+                    $this->supabase->delete('img_cover', $book->cover);
+                } else {
+                    Storage::disk('public')->delete($book->cover);
+                }
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                if (str_starts_with($book->isi, 'http')) {
+                    $this->supabase->delete('pdf_buku', $book->isi);
+                } else {
+                    Storage::disk('public')->delete($book->isi);
+                }
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -374,8 +410,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -405,18 +441,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -510,8 +550,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -545,8 +585,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -576,18 +616,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -681,8 +725,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -714,8 +758,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -746,18 +790,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -851,8 +899,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -884,8 +932,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -915,18 +963,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -1020,8 +1072,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -1053,8 +1105,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -1084,18 +1136,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -1189,8 +1245,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -1222,8 +1278,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -1253,18 +1309,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -1358,8 +1418,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -1391,8 +1451,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -1422,18 +1482,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -1527,8 +1591,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -1559,8 +1623,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -1590,18 +1654,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -1695,8 +1763,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -1728,8 +1796,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -1759,18 +1827,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -1864,8 +1936,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -1897,8 +1969,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Set sekolah berdasarkan kategori
@@ -1928,18 +2000,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -2033,8 +2109,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -2066,8 +2142,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         $kategoriSekolahMap = [
@@ -2096,18 +2172,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -2196,8 +2276,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -2229,8 +2309,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         $kategoriSekolahMap = [
@@ -2259,18 +2339,22 @@ class BookController extends Controller
         // Handle file upload
         if ($request->hasFile('cover')) {
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                $this->supabase->delete('img_cover', $book->cover);
             }
             $coverFile = $request->file('cover');
-            $validateData['cover'] = $coverFile->storeAs('covers', $coverFile->getClientOriginalName(), 'public');
+            $coverUrl = $this->supabase->upload($coverFile, 'img_cover', 'covers/' . $coverFile->hashName());
+            if (!$coverUrl) throw new Exception('Gagal mengupload cover ke Supabase');
+            $validateData['cover'] = $coverUrl;
         }
 
         if ($request->hasFile('isi')) {
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                $this->supabase->delete('pdf_buku', $book->isi);
             }
             $isiFile = $request->file('isi');
-            $validateData['isi'] = $isiFile->storeAs('books', $isiFile->getClientOriginalName(), 'public');
+            $isiUrl = $this->supabase->upload($isiFile, 'pdf_buku', 'books/' . $isiFile->hashName());
+            if (!$isiUrl) throw new Exception('Gagal mengupload PDF ke Supabase');
+            $validateData['isi'] = $isiUrl;
         }
 
         $book->update($validateData);
@@ -2359,8 +2443,8 @@ class BookController extends Controller
         return response()->json([
             'message' => 'Buku berhasil diperbarui',
             'book' => $book,
-            'pdf_url' => isset($validateData['isi']) ? Storage::url($validateData['isi']) : Storage::url($book->isi),
-            'cover_url' => isset($validateData['cover']) ? Storage::url($validateData['cover']) : Storage::url($book->cover),
+            'pdf_url' => isset($validateData['isi']) ? $validateData['isi'] : $book->isi,
+            'cover_url' => isset($validateData['cover']) ? $validateData['cover'] : $book->cover,
         ]);
 
     } catch (ModelNotFoundException $e) {
@@ -2393,8 +2477,8 @@ class BookController extends Controller
             'penulis' => 'sometimes|required',
             'tahun' => 'sometimes|required|digits:4',
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
-            'cover' => 'sometimes|image|mimes:jpeg,png,jpg',
-            'isi' => 'sometimes|file|mimes:pdf',
+            'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
+            'isi' => 'sometimes|file|mimes:pdf|max:51200',
         ]);
 
         // Gunakan data lama jika tidak dikirim
@@ -2511,10 +2595,18 @@ class BookController extends Controller
     
             // 2️⃣ Hapus cover dan isi buku jika ada
             if ($book->cover) {
-                Storage::disk('public')->delete($book->cover);
+                if (str_starts_with($book->cover, 'http')) {
+                    $this->supabase->delete('img_cover', $book->cover);
+                } else {
+                    Storage::disk('public')->delete($book->cover);
+                }
             }
             if ($book->isi) {
-                Storage::disk('public')->delete($book->isi);
+                if (str_starts_with($book->isi, 'http')) {
+                    $this->supabase->delete('pdf_buku', $book->isi);
+                } else {
+                    Storage::disk('public')->delete($book->isi);
+                }
             }
     
             // 3️⃣ Hapus buku di semua tabel terkait
@@ -2568,19 +2660,35 @@ class BookController extends Controller
 
     private function filterBooks($books) {
         try {
+            \Illuminate\Support\Facades\Log::info('FilterBooks: Received ' . $books->count() . ' books.');
             return $books->filter(function ($book) {
                 // Ensure isi and cover properties exist
                 if (!isset($book->isi) || !isset($book->cover)) {
+                    \Illuminate\Support\Facades\Log::warning('FilterBooks: Book ID ' . ($book->id ?? 'unknown') . ' missing isi or cover.');
                     return false;
                 }
 
                 // Check PDF existence
-                if (empty($book->isi) || !Storage::disk('public')->exists($book->isi)) {
+                if (empty($book->isi)) {
+                    \Illuminate\Support\Facades\Log::warning('FilterBooks: Book ID ' . $book->id . ' has empty isi.');
+                    return false;
+                }
+                
+                // If it's NOT a URL, check local storage
+                if (!str_starts_with($book->isi, 'http') && !Storage::disk('public')->exists($book->isi)) {
+                    \Illuminate\Support\Facades\Log::warning('FilterBooks: Book ID ' . $book->id . ' isi not found locally: ' . $book->isi);
                     return false;
                 }
 
                 // Check Cover existence
-                if (empty($book->cover) || !Storage::disk('public')->exists($book->cover)) {
+                if (empty($book->cover)) {
+                    \Illuminate\Support\Facades\Log::warning('FilterBooks: Book ID ' . $book->id . ' has empty cover.');
+                    return false;
+                }
+
+                // If it's NOT a URL, check local storage
+                if (!str_starts_with($book->cover, 'http') && !Storage::disk('public')->exists($book->cover)) {
+                    \Illuminate\Support\Facades\Log::warning('FilterBooks: Book ID ' . $book->id . ' cover not found locally: ' . $book->cover);
                     return false;
                 }
 
@@ -2594,94 +2702,139 @@ class BookController extends Controller
         }
     }
 
-      public function getSiswaBooks()
+    public function getSiswaBooks()
     {
-        return response()->json($this->filterBooks(DB::table('book_siswas')->get()), 200);
+        // Mengambil semua data buku dari tabel books
+        // Menggunakan Book::all() agar semua buku (termasuk NA) tampil
+        $books = Book::all();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas1Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_1_classes')->get()), 200);
+        $books = Book::where('kategori', 'I')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas2Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_2_classes')->get()), 200);
+        $books = Book::where('kategori', 'II')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas3Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_3_classes')->get()), 200);
+        $books = Book::where('kategori', 'III')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas4Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_4_classes')->get()), 200);
+        $books = Book::where('kategori', 'IV')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas5Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_5_classes')->get()), 200);
+        $books = Book::where('kategori', 'V')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas6Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_6_classes')->get()), 200);
+        $books = Book::where('kategori', 'VI')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas7Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_7_classes')->get()), 200);
+        $books = Book::where('kategori', 'VII')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas8Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_8_classes')->get()), 200);
+        $books = Book::where('kategori', 'VIII')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas9Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_9_classes')->get()), 200);
+        $books = Book::where('kategori', 'IX')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas10Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_10_classes')->get()), 200);
+        $books = Book::where('kategori', 'X')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas11Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_11_classes')->get()), 200);
+        $books = Book::where('kategori', 'XI')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
       public function getKelas12Books()
     {
-        return response()->json($this->filterBooks(DB::table('book_12_classes')->get()), 200);
+        $books = Book::where('kategori', 'XII')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
 
     public function getGuruBooks()
     {
-        return response()->json($this->filterBooks(DB::table('book_gurus')->get()), 200);
+        // Mengambil semua data buku dari tabel books
+        // Menggunakan Book::all() agar semua buku (termasuk NA) tampil
+        $books = Book::all();
+        return response()->json($this->filterBooks($books), 200);
     }
 
     public function getPerpusBooks()
     {
-        return response()->json($this->filterBooks(DB::table('book_perpuses')->get()), 200);
+        // Fetch all books directly from the main Book table
+        $books = Book::all();
+        return response()->json($this->filterBooks($books), 200);
     }
 
     public function getNonAkademikBooks()
     {
-        return response()->json($this->filterBooks(DB::table('book_non_akademiks')->get()), 200);
+        // Fetch non-academic books directly from the main Book table
+        $books = Book::where('kategori', 'NA')->get();
+        return response()->json($this->filterBooks($books), 200);
     }
 
     // 🔍 GET Buku berdasarkan ID di tabel SISWA
     public function getSiswaBookById($id)
     {
-        $book = DB::table('book_siswas')->where('id', $id)->first();
-        return $book ? response()->json($book, 200) : response()->json(['message' => 'Buku tidak ditemukan'], 404);
+        try {
+            $book = Book::find($id);
+
+            if (!$book) {
+                return response()->json(['message' => 'Buku tidak ditemukan'], 404);
+            }
+
+            KunjunganBook::create([
+                'book_id' => $book->id,
+                'judul' => $book->judul,
+                'deskripsi' => $book->deskripsi,
+                'sekolah' => $book->sekolah,
+                'kategori' => $book->kategori,
+                'penerbit' => $book->penerbit,
+                'penulis' => $book->penulis,
+                'tahun' => $book->tahun,
+                'ISBN' => $book->ISBN,
+                'cover' => $book->cover,
+                'tanggal_kunjungan' => now()->toDateString(),
+            ]);
+
+            $book->pdf_url = Storage::url($book->isi);
+            $book->cover_url = Storage::url($book->cover);
+
+            return response()->json($book, 200);
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Terjadi kesalahan', 'error' => $e->getMessage()], 500);
+        }
     }
 public function getKelas1BookById($id)
 {
     try {
-        // Cari buku berdasarkan ID di tabel 'book_1_classes'
-        $book = DB::table('book_1_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'I')->first();
 
-        // Jika buku tidak ditemukan, kembalikan response 404
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        // Simpan kunjungan ke tabel 'kunjungan_books'
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -2694,13 +2847,11 @@ public function getKelas1BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        // Kembalikan data buku dengan URL cover dan PDF
-        $book->pdf_url = Storage::url($book->isi); // Jika file PDF ada
-        $book->cover_url = Storage::url($book->cover); // Jika cover ada
+        $book->pdf_url = Storage::url($book->isi);
+        $book->cover_url = Storage::url($book->cover);
 
         return response()->json($book, 200);
     } catch (Exception $e) {
-        // Tangani error jika terjadi kesalahan
         return response()->json(['message' => 'Terjadi kesalahan', 'error' => $e->getMessage()], 500);
     }
 }
@@ -2708,17 +2859,14 @@ public function getKelas1BookById($id)
  public function getKelas2BookById($id)
 {
     try {
-        // Cari buku berdasarkan ID di tabel 'book_2_classes'
-        $book = DB::table('book_2_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'II')->first();
 
-        // Jika buku tidak ditemukan, kembalikan response 404
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        // Simpan kunjungan ke tabel 'kunjungan_books'
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -2731,7 +2879,6 @@ public function getKelas1BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        // Kembalikan data buku dengan URL cover dan PDF
         $book->pdf_url = Storage::url($book->isi);
         $book->cover_url = Storage::url($book->cover);
 
@@ -2744,17 +2891,14 @@ public function getKelas1BookById($id)
 public function getKelas3BookById($id)
 {
     try {
-        // Cari buku berdasarkan ID di tabel 'book_3_classes'
-        $book = DB::table('book_3_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'III')->first();
 
-        // Jika buku tidak ditemukan, kembalikan response 404
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        // Simpan kunjungan ke tabel 'kunjungan_books'
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -2767,7 +2911,6 @@ public function getKelas3BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        // Kembalikan data buku dengan URL cover dan PDF
         $book->pdf_url = Storage::url($book->isi);
         $book->cover_url = Storage::url($book->cover);
 
@@ -2780,14 +2923,14 @@ public function getKelas3BookById($id)
 public function getKelas4BookById($id)
 {
     try {
-        $book = DB::table('book_4_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'IV')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -2812,14 +2955,14 @@ public function getKelas4BookById($id)
  public function getKelas5BookById($id)
 {
     try {
-        $book = DB::table('book_5_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'V')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -2844,14 +2987,14 @@ public function getKelas4BookById($id)
 public function getKelas6BookById($id)
 {
     try {
-        $book = DB::table('book_6_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'VI')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -2876,14 +3019,14 @@ public function getKelas6BookById($id)
 public function getKelas7BookById($id)
 {
     try {
-        $book = DB::table('book_7_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'VII')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -2908,14 +3051,14 @@ public function getKelas7BookById($id)
 public function getKelas8BookById($id)
 {
     try {
-        $book = DB::table('book_8_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'VIII')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -2940,14 +3083,14 @@ public function getKelas8BookById($id)
 public function getKelas9BookById($id)
 {
     try {
-        $book = DB::table('book_9_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'IX')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -2972,14 +3115,14 @@ public function getKelas9BookById($id)
 public function getKelas10BookById($id)
 {
     try {
-        $book = DB::table('book_10_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'X')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -3004,14 +3147,14 @@ public function getKelas10BookById($id)
 public function getKelas11BookById($id)
 {
     try {
-        $book = DB::table('book_11_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'XI')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -3036,14 +3179,14 @@ public function getKelas11BookById($id)
 public function getKelas12BookById($id)
 {
     try {
-        $book = DB::table('book_12_classes')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'XII')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -3070,14 +3213,14 @@ public function getKelas12BookById($id)
 public function getGuruBookById($id)
 {
     try {
-        $book = DB::table('book_gurus')->where('id', $id)->first();
+        $book = Book::find($id);
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -3105,14 +3248,14 @@ public function getGuruBookById($id)
 public function getPerpusBookById($id)
 {
     try {
-        $book = DB::table('book_perpuses')->where('id', $id)->first();
+        $book = Book::where('id', $id)->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,
@@ -3138,14 +3281,14 @@ public function getPerpusBookById($id)
 public function getNonAkademikBookById($id)
 {
     try {
-        $book = DB::table('book_non_akademiks')->where('id', $id)->first();
+        $book = Book::where('id', $id)->where('kategori', 'NA')->first();
 
         if (!$book) {
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
         KunjunganBook::create([
-            'book_id' => $book->book_id,
+            'book_id' => $book->id,
             'judul' => $book->judul,
             'deskripsi' => $book->deskripsi,
             'sekolah' => $book->sekolah,

@@ -36,6 +36,9 @@ class KunjunganBook extends Model
 
       public function getCoverUrlAttribute()
     {
+        if ($this->cover && (str_starts_with($this->cover, 'http://') || str_starts_with($this->cover, 'https://'))) {
+            return $this->cover;
+        }
         return $this->cover ? Storage::url($this->cover) : null;
     }
 }
