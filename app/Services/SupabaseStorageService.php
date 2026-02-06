@@ -13,8 +13,8 @@ class SupabaseStorageService
 
     public function __construct()
     {
-        $this->url = env('SUPABASE_URL');
-        $this->key = env('SUPABASE_KEY');
+        $this->url = config('services.supabase.url');
+        $this->key = config('services.supabase.key');
     }
 
     /**

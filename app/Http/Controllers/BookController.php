@@ -2816,8 +2816,8 @@ class BookController extends Controller
                 'tanggal_kunjungan' => now()->toDateString(),
             ]);
 
-            $book->pdf_url = Storage::url($book->isi);
-            $book->cover_url = Storage::url($book->cover);
+            
+            
 
             return response()->json($book, 200);
         } catch (Exception $e) {
@@ -2846,9 +2846,6 @@ public function getKelas1BookById($id)
             'cover' => $book->cover,
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
-
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -2879,8 +2876,8 @@ public function getKelas1BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -2911,8 +2908,8 @@ public function getKelas3BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -2943,8 +2940,8 @@ public function getKelas4BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -2975,8 +2972,8 @@ public function getKelas4BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3007,8 +3004,8 @@ public function getKelas6BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3039,8 +3036,8 @@ public function getKelas7BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3071,8 +3068,8 @@ public function getKelas8BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3103,8 +3100,8 @@ public function getKelas9BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3135,8 +3132,8 @@ public function getKelas10BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3167,8 +3164,8 @@ public function getKelas11BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3199,8 +3196,8 @@ public function getKelas12BookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3233,8 +3230,8 @@ public function getGuruBookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3268,8 +3265,8 @@ public function getPerpusBookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3301,8 +3298,8 @@ public function getNonAkademikBookById($id)
             'tanggal_kunjungan' => now()->toDateString(),
         ]);
 
-        $book->pdf_url = Storage::url($book->isi);
-        $book->cover_url = Storage::url($book->cover);
+        
+        
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -3837,3 +3834,4 @@ public function getNonAkademikBookById($id)
 
 
 }
+
