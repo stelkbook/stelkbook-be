@@ -181,19 +181,7 @@ class BookController extends Controller
             }
     
             // Simpan kunjungan ke tabel kunjungan_books
-            KunjunganBook::create([
-                'book_id' => $book->id,
-                'judul' => $book->judul,
-                'deskripsi' => $book->deskripsi,
-                'sekolah' => $book->sekolah,
-                'kategori' => $book->kategori,
-                'penerbit' => $book->penerbit,
-                'penulis' => $book->penulis,
-                'tahun' => $book->tahun,
-                'ISBN' => $book->ISBN,
-                'cover' => $book->cover,
-                'tanggal_kunjungan' => now()->toDateString(),
-            ]);
+            $this->logKunjungan($book);
 
             return response()->json($book, 200);
         } catch (Exception $e) {
@@ -2807,19 +2795,7 @@ class BookController extends Controller
                 return response()->json(['message' => 'Buku tidak ditemukan'], 404);
             }
 
-            KunjunganBook::create([
-                'book_id' => $book->id,
-                'judul' => $book->judul,
-                'deskripsi' => $book->deskripsi,
-                'sekolah' => $book->sekolah,
-                'kategori' => $book->kategori,
-                'penerbit' => $book->penerbit,
-                'penulis' => $book->penulis,
-                'tahun' => $book->tahun,
-                'ISBN' => $book->ISBN,
-                'cover' => $book->cover,
-                'tanggal_kunjungan' => now()->toDateString(),
-            ]);
+            $this->logKunjungan($book);
 
             
             
@@ -2838,19 +2814,7 @@ public function getKelas1BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         return response()->json($book, 200);
     } catch (Exception $e) {
@@ -2867,19 +2831,7 @@ public function getKelas1BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -2899,19 +2851,7 @@ public function getKelas3BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -2931,19 +2871,7 @@ public function getKelas4BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -2963,19 +2891,7 @@ public function getKelas4BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -2995,19 +2911,7 @@ public function getKelas6BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3027,19 +2931,7 @@ public function getKelas7BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3059,19 +2951,7 @@ public function getKelas8BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3091,19 +2971,7 @@ public function getKelas9BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3123,19 +2991,7 @@ public function getKelas10BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3155,19 +3011,7 @@ public function getKelas11BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3187,19 +3031,7 @@ public function getKelas12BookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3221,19 +3053,7 @@ public function getGuruBookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3256,19 +3076,7 @@ public function getPerpusBookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3289,19 +3097,7 @@ public function getNonAkademikBookById($id)
             return response()->json(['message' => 'Buku tidak ditemukan'], 404);
         }
 
-        KunjunganBook::create([
-            'book_id' => $book->id,
-            'judul' => $book->judul,
-            'deskripsi' => $book->deskripsi,
-            'sekolah' => $book->sekolah,
-            'kategori' => $book->kategori,
-            'penerbit' => $book->penerbit,
-            'penulis' => $book->penulis,
-            'tahun' => $book->tahun,
-            'ISBN' => $book->ISBN,
-            'cover' => $book->cover,
-            'tanggal_kunjungan' => now()->toDateString(),
-        ]);
+        $this->logKunjungan($book);
 
         
         
@@ -3838,5 +3634,30 @@ public function getNonAkademikBookById($id)
 }
 
 
-}
 
+    /**
+     * Helper to log book visits safely.
+     * Wraps KunjunganBook::create in try-catch to prevent 500 errors on log failure.
+     */
+    private function logKunjungan($book)
+    {
+        try {
+            KunjunganBook::create([
+                'book_id' => $book->id,
+                'judul' => $book->judul,
+                'deskripsi' => $book->deskripsi,
+                'sekolah' => $book->sekolah,
+                'kategori' => $book->kategori,
+                'penerbit' => $book->penerbit,
+                'penulis' => $book->penulis,
+                'tahun' => $book->tahun,
+                'ISBN' => $book->ISBN,
+                'cover' => $book->cover,
+                'tanggal_kunjungan' => now()->toDateString(),
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to log kunjungan for book ID ' . $book->id . ': ' . $e->getMessage());
+            // Do not throw, allow the request to proceed
+        }
+    }
+}
