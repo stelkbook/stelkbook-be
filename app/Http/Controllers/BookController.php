@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\DB;
 use App\Services\SupabaseStorageService;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class BookController extends Controller
 {
@@ -3642,8 +3643,11 @@ public function getNonAkademikBookById($id)
     private function logKunjungan($book)
     {
         try {
+            $user = request()->user('sanctum');
             KunjunganBook::create([
                 'book_id' => $book->id,
+                'user_id' => $user ? $user->id : null,
+                'username' => $user ? $user->username : null,
                 'judul' => $book->judul,
                 'deskripsi' => $book->deskripsi,
                 'sekolah' => $book->sekolah,

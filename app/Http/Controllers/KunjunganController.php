@@ -29,7 +29,7 @@ class KunjunganController extends Controller
         // Rekap harian 7 hari terakhir
         $harian = DB::table('kunjungans')
             ->select(
-                DB::raw('DATE(tanggal_kunjungan) as name'),
+                DB::raw("TO_CHAR(tanggal_kunjungan, 'YYYY-MM-DD') as name"),
                 DB::raw('COUNT(*) as pengunjung')
             )
             ->whereDate('tanggal_kunjungan', '>=', $now->copy()->subDays(6)->toDateString())
@@ -40,8 +40,8 @@ class KunjunganController extends Controller
         // Rekap bulanan di tahun berjalan
         $bulanan = DB::table('kunjungans')
             ->select(
-                DB::raw('MONTH(tanggal_kunjungan) as bulan'),
-                DB::raw('MONTHNAME(tanggal_kunjungan) as name'),
+                DB::raw("EXTRACT(MONTH FROM tanggal_kunjungan) as bulan"),
+                DB::raw("TRIM(TO_CHAR(tanggal_kunjungan, 'Month')) as name"),
                 DB::raw('COUNT(*) as pengunjung')
             )
             ->whereYear('tanggal_kunjungan', $now->year)
@@ -52,7 +52,7 @@ class KunjunganController extends Controller
         // Rekap tahunan semua tahun
         $tahunan = DB::table('kunjungans')
             ->select(
-                DB::raw('YEAR(tanggal_kunjungan) as name'),
+                DB::raw("EXTRACT(YEAR FROM tanggal_kunjungan) as name"),
                 DB::raw('COUNT(*) as pengunjung')
             )
             ->groupBy('name')
@@ -136,80 +136,104 @@ public function rekap2()
 
 // Menampilkan semua kunjungan buku
 
-public function indexKunjunganBook()
-{
-    // Ambil semua data KunjunganBook dengan relasi book
-    $kunjunganBooks = KunjunganBook::with('book')->latest()->get();
+    public function indexKunjunganBook()
+    {
+        // Ambil semua data KunjunganBook dengan relasi book
+        $kunjunganBooks = KunjunganBook::with('book')->latest()->get();
 
-    // Debugging untuk melihat data yang diambil
-    dd($kunjunganBooks); // Cek apakah 'book' ada dan 'cover' terisi
+        // Transformasi untuk menambahkan URL cover
+        $kunjunganBooks->transform(function ($item) {
+            // Periksa apakah book ada dan memiliki cover
+            if ($item->book && $item->book->cover) {
+                $cover = trim($item->book->cover);
+                if (str_starts_with($cover, 'http://') || str_starts_with($cover, 'https://')) {
+                    $item->cover_url = $cover;
+                } elseif (str_starts_with($cover, 'covers/') || str_starts_with($cover, 'books/')) {
+                    $item->cover_url = $cover;
+                } else {
+                    $item->cover_url = Storage::url($cover);
+                }
+            } else {
+                $item->cover_url = null;
+            }
+            return $item;
+        });
 
-    // Transformasi untuk menambahkan URL cover
-    $kunjunganBooks->transform(function ($item) {
-        // Periksa apakah book ada dan memiliki cover
-        $item->cover_url = $item->book && $item->book->cover ? Storage::url($item->book->cover) : null;
-        return $item;
-    });
-
-    return response()->json([
-        'message' => 'Data kunjungan buku berhasil diambil.',
-        'data' => $kunjunganBooks
-    ]);
-}
+        return response()->json([
+            'message' => 'Data kunjungan buku berhasil diambil.',
+            'data' => $kunjunganBooks
+        ]);
+    }
 
 
 
 
 
 // Menampilkan kunjungan buku hari ini
-public function kunjunganBookHariIni()
-{
-    $today = now()->toDateString();
+    public function kunjunganBookHariIni()
+    {
+        $kunjunganBooks = KunjunganBook::with('book')
+            ->whereDate('created_at', Carbon::today())
+            ->latest()
+            ->get();
 
-    $kunjunganBooks = KunjunganBook::with('book')
-        ->whereDate('created_at', $today)
-        ->latest()
-        ->get();
+        $kunjunganBooks->transform(function ($item) {
+            if ($item->book && $item->book->cover) {
+                $cover = trim($item->book->cover);
+                if (str_starts_with($cover, 'http://') || str_starts_with($cover, 'https://')) {
+                    $item->cover_url = $cover;
+                } elseif (str_starts_with($cover, 'covers/') || str_starts_with($cover, 'books/')) {
+                    $item->cover_url = $cover;
+                } else {
+                    $item->cover_url = Storage::url($cover);
+                }
+            } else {
+                $item->cover_url = null;
+            }
+            return $item;
+        });
 
-    $kunjunganBooks->transform(function ($item) {
-        $item->cover_url = $item->book && $item->book->cover ? Storage::url($item->book->cover) : null;
-        return $item;
-    });
-
-    return response()->json([
-        'message' => 'Data kunjungan buku hari ini berhasil diambil.',
-        'data' => $kunjunganBooks
-    ]);
-}
+        return response()->json([
+            'message' => 'Data kunjungan buku hari ini berhasil diambil.',
+            'data' => $kunjunganBooks
+        ]);
+    }
 
 
 // Rekap total kunjungan per buku
-public function rekapKunjunganBook()
-{
-    $rekap = DB::table('kunjungan_books')
-        ->join('books', 'kunjungan_books.book_id', '=', 'books.id')
-        ->select(
-            'kunjungan_books.book_id',
-            'books.judul',
-            'books.cover',
-            'books.kategori',
-            'books.sekolah',
-            DB::raw('ROUND(COUNT(*) / 2) as total_kunjungan')
-        )
-        ->groupBy('kunjungan_books.book_id', 'books.judul', 'books.cover', 'books.kategori', 'books.sekolah')
-        ->orderByDesc('total_kunjungan')
-        ->get();
+    public function rekapKunjunganBook()
+    {
+        $rekap = DB::table('kunjungan_books')
+            ->join('books', 'kunjungan_books.book_id', '=', 'books.id')
+            ->select(
+                'kunjungan_books.book_id',
+                'books.judul',
+                'books.cover',
+                'books.kategori',
+                'books.sekolah',
+                DB::raw('ROUND(COUNT(*) / 2) as total_kunjungan')
+            )
+            ->groupBy('kunjungan_books.book_id', 'books.judul', 'books.cover', 'books.kategori', 'books.sekolah')
+            ->orderByDesc('total_kunjungan')
+            ->get();
 
-    $rekap->transform(function ($item) {
-        $item->cover_url = $item->cover ? Storage::url($item->cover) : null;
-        return $item;
-    });
+        $rekap->transform(function ($item) {
+            $cover = $item->cover ? trim($item->cover) : null;
+            if ($cover && (str_starts_with($cover, 'http://') || str_starts_with($cover, 'https://'))) {
+                $item->cover_url = $cover;
+            } elseif ($cover && (str_starts_with($cover, 'covers/') || str_starts_with($cover, 'books/'))) {
+                $item->cover_url = $cover;
+            } else {
+                $item->cover_url = $cover ? Storage::url($cover) : null;
+            }
+            return $item;
+        });
 
-    return response()->json([
-        'message' => 'Rekap kunjungan buku berhasil diambil.',
-        'data' => $rekap
-    ]);
-}
+        return response()->json([
+            'message' => 'Rekap kunjungan buku berhasil diambil.',
+            'data' => $rekap
+        ]);
+    }
 
 
 

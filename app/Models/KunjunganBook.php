@@ -14,6 +14,8 @@ class KunjunganBook extends Model
 
     protected $fillable = [
         'book_id',
+        'user_id',
+        'username',
         'judul',
         'deskripsi',
         'sekolah',
