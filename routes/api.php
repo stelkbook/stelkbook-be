@@ -7,6 +7,7 @@ use App\Http\Controllers\BookController;
 use App\Http\Controllers\PdfController;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\KunjunganController;
+use App\Http\Controllers\BookRatingController;
 
 
 
@@ -37,6 +38,7 @@ Route::get('/books-kelas-10', [BookController::class, 'getKelas10Books']);
 Route::get('/books-kelas-11', [BookController::class, 'getKelas11Books']);
 Route::get('/books-kelas-12', [BookController::class, 'getKelas12Books']);
 Route::get('/books-non-akademik', [BookController::class, 'getNonAkademikBooks']);
+Route::get('/books-top/{category}', [BookController::class, 'getTopBooks']);
 
 Route::get('/books-kelas-1/{id}', [BookController::class, 'getKelas1BookById']);
 Route::get('/books-kelas-2/{id}', [BookController::class, 'getKelas2BookById']);
@@ -107,6 +109,11 @@ Route::post('/update-guru-sd/{id}', [AuthController::class, 'updateSdGuru']);
 Route::post('/update-guru-smp/{id}', [AuthController::class, 'updateSmpGuru']);
 Route::post('/update-guru-smk/{id}', [AuthController::class, 'updateSmkGuru']);
 Route::post('/update-perpus/{id}',[AuthController::class, 'updatePerpus']);
+
+// Book Rating Routes
+Route::get('/book-ratings/{bookId}/user', [BookRatingController::class, 'getUserRating']);
+Route::post('/book-ratings', [BookRatingController::class, 'store']);
+Route::delete('/book-ratings/{bookId}', [BookRatingController::class, 'destroy']);
 
 
 

@@ -55,6 +55,7 @@ class BookController extends Controller
             'ISBN' => 'required|string|unique:books',
             'cover' => 'required|image|mimes:jpeg,png,jpg,webp|max:10240',
             'isi' => 'required|file|mimes:pdf|max:51200',
+            'tags' => 'nullable|string',
         ]);
         Log::info('BookController@store: Validation passed');
 
@@ -240,6 +241,7 @@ class BookController extends Controller
             'ISBN' => 'sometimes|required|unique:books,ISBN,' . $book->id,
             'cover' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:10240',
             'isi' => 'sometimes|file|mimes:pdf|max:51200',
+            'tags' => 'nullable|string',
         ]);
 
         // Jika cover tidak dikirim, gunakan cover yang sudah ada
@@ -3635,6 +3637,40 @@ public function getNonAkademikBookById($id)
 }
 
 
+
+    public function getTopBooks($category)
+    {
+        try {
+            $validCategories = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'NA'];
+            if (!in_array($category, $validCategories)) {
+                return response()->json(['message' => 'Kategori tidak valid'], 400);
+            }
+
+            // Ambil top 5 buku yang paling sering dikunjungi berdasarkan kategori
+            $topBookIds = KunjunganBook::where('kategori', $category)
+                ->select('book_id', DB::raw('count(*) as total'))
+                ->groupBy('book_id')
+                ->orderByDesc('total')
+                ->limit(5)
+                ->pluck('book_id');
+
+            if ($topBookIds->isEmpty()) {
+                return response()->json([], 200);
+            }
+
+            // Ambil detail buku
+            $books = Book::whereIn('id', $topBookIds)->get();
+            
+            // Sort books collection according to topBookIds order
+            $sortedBooks = $topBookIds->map(function ($id) use ($books) {
+                return $books->firstWhere('id', $id);
+            })->filter();
+
+            return response()->json($this->filterBooks($sortedBooks), 200);
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Terjadi kesalahan', 'error' => $e->getMessage()], 500);
+        }
+    }
 
     /**
      * Helper to log book visits safely.
