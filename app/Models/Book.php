@@ -21,7 +21,6 @@ class Book extends Model
         'ISBN',
         'cover',
         'isi',
-        'tags',
     ];
 
     // Tambahkan atribut tambahan untuk JSON response

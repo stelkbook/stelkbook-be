@@ -4,10 +4,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookController;
+use App\Http\Controllers\PendingBookController;
 use App\Http\Controllers\PdfController;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\KunjunganController;
-use App\Http\Controllers\BookRatingController;
 
 
 
@@ -24,6 +24,8 @@ Route::get('/pdf/{filename}', [PdfController::class, 'serve'])->where('filename'
 Route::get('/books', [BookController::class, 'index']); // Ambil semua buku
 Route::get('/books/{id}', [BookController::class, 'show']); // Ambil buku berdasarkan ID
 Route::get('/books/{id}/isi', [BookController::class, 'getIsiPdf']);
+Route::get('/books-top/{category}', [BookController::class, 'getTopBooks']);
+Route::post('/pending-book-uploads', [PendingBookController::class, 'store']); // Public Suggestion
 
 Route::get('/books-kelas-1', [BookController::class, 'getKelas1Books']);
 Route::get('/books-kelas-2', [BookController::class, 'getKelas2Books']);
@@ -38,7 +40,6 @@ Route::get('/books-kelas-10', [BookController::class, 'getKelas10Books']);
 Route::get('/books-kelas-11', [BookController::class, 'getKelas11Books']);
 Route::get('/books-kelas-12', [BookController::class, 'getKelas12Books']);
 Route::get('/books-non-akademik', [BookController::class, 'getNonAkademikBooks']);
-Route::get('/books-top/{category}', [BookController::class, 'getTopBooks']);
 
 Route::get('/books-kelas-1/{id}', [BookController::class, 'getKelas1BookById']);
 Route::get('/books-kelas-2/{id}', [BookController::class, 'getKelas2BookById']);
@@ -110,11 +111,6 @@ Route::post('/update-guru-smp/{id}', [AuthController::class, 'updateSmpGuru']);
 Route::post('/update-guru-smk/{id}', [AuthController::class, 'updateSmkGuru']);
 Route::post('/update-perpus/{id}',[AuthController::class, 'updatePerpus']);
 
-// Book Rating Routes
-Route::get('/book-ratings/{bookId}/user', [BookRatingController::class, 'getUserRating']);
-Route::post('/book-ratings', [BookRatingController::class, 'store']);
-Route::delete('/book-ratings/{bookId}', [BookRatingController::class, 'destroy']);
-
 
 
 //BookController
@@ -122,6 +118,10 @@ Route::post('/books', [BookController::class, 'store']); // Tambah buku
 Route::put('/books/{id}', [BookController::class, 'update']); // Update buku berdasarkan ID
 Route::delete('/books/{id}', [BookController::class, 'destroy']); // Hapus buku berdasarkan ID
 
+//PendingBookController (Admin Protected)
+Route::get('/pending-book-uploads', [PendingBookController::class, 'index']);
+Route::post('/approve-book-upload/{id}', [PendingBookController::class, 'approve']);
+Route::post('/decline-book-upload/{id}', [PendingBookController::class, 'decline']);
   
 
 Route::get('/kunjungan-books', [KunjunganController::class, 'indexKunjunganBook']);
