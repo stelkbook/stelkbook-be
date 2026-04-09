@@ -29,13 +29,19 @@ class Book extends Model
     // Accessor untuk URL PDF
     public function getPdfUrlAttribute()
     {
-        return $this->isi ? Storage::url($this->isi) : null;
+        if ($this->isi && (str_starts_with($this->isi, 'http://') || str_starts_with($this->isi, 'https://'))) {
+            return $this->isi;
+        }
+        return $this->isi ? url(Storage::url($this->isi)) : null;
     }
 
     // Accessor untuk URL Cover
     public function getCoverUrlAttribute()
     {
-        return $this->cover ? Storage::url($this->cover) : null;
+        if ($this->cover && (str_starts_with($this->cover, 'http://') || str_starts_with($this->cover, 'https://'))) {
+            return $this->cover;
+        }
+        return $this->cover ? url(Storage::url($this->cover)) : null;
     }
 
     public function bookSiswas()

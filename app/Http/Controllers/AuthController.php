@@ -581,59 +581,74 @@ public function getSmkGuru($id)
 
     public function login(Request $request)
     {
-        $request->validate([
-            'kode' => 'required',
-            'password' => 'required',
-        ]);
-    
-        $user = User::where('kode', $request->kode)->first();
-    
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Unauthorized: Invalid credentials'], 401);
-        }
-    
-        // ⛔ Cek apakah user sudah disetujui admin, kecuali kalau dia Admin
-        if ($user->role !== 'Admin' && !$user->is_approved) {
-            return response()->json([
-                'message' => 'Akun Anda belum disetujui oleh admin.'
-            ], 403);
-        }
-    
-        // Reset sekolah & kelas kalau rolenya bukan siswa
-        if (in_array($user->role, ['Guru', 'Admin', 'Perpus'])) {
-            $user->sekolah = null;
-            $user->kelas = null;
-            $user->save();
-        }
-    
-        // 🔐 Generate token
-        $token = $user->createToken('auth_token')->plainTextToken;
-    
-        // 📝 Catat kunjungan dengan data tanggal
-        $now = Carbon::now();
+        try {
+            $request->validate([
+                'kode' => 'required',
+                'password' => 'required',
+            ]);
         
-        // Menyimpan kunjungan dengan format tanggal, bulan, dan tahun
-        Kunjungan::create([
-            'user_id' => $user->id,
-            'username' => $user->username,
-            'email' => $user->email,
-            'kode' => $user->kode,
-            'role' => $user->role,
-            'gender' => $user->gender,
-            'sekolah' => $user->sekolah,
-            'kelas' => $user->kelas,
-            'avatar' => $user->avatar,
-            'tanggal_kunjungan' => $now, // Menyimpan waktu kunjungan lengkap
-            'tanggal_kunjungan_hari' => $now->toDateString(), // Format YYYY-MM-DD
-            'tanggal_kunjungan_bulan' => $now->format('M Y'), // Format "Jan 2025"
-            'tanggal_kunjungan_tahun' => $now->year, // Format "2025"
-        ]);
-    
-        return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'user' => $user,
-        ], 200);
+            $user = User::where('kode', $request->kode)->first();
+        
+            if (!$user) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+
+            if (!Hash::check($request->password, $user->password)) {
+                return response()->json(['message' => 'Invalid password'], 401);
+            }
+        
+            // ⛔ Cek apakah user sudah disetujui admin, kecuali kalau dia Admin
+            if ($user->role !== 'Admin' && !$user->is_approved) {
+                return response()->json([
+                    'message' => 'Akun Anda belum disetujui oleh admin.'
+                ], 403);
+            }
+        
+            // Reset sekolah & kelas kalau rolenya bukan siswa
+            if (in_array($user->role, ['Guru', 'Admin', 'Perpus'])) {
+                $user->sekolah = null;
+                $user->kelas = null;
+                $user->save();
+            }
+        
+            // 🔐 Generate token
+            $token = $user->createToken('auth_token')->plainTextToken;
+        
+            // 📝 Catat kunjungan dengan data tanggal
+            $now = Carbon::now();
+            
+            // Menyimpan kunjungan dengan format tanggal, bulan, dan tahun
+            try {
+                Kunjungan::create([
+                    'user_id' => $user->id,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'kode' => $user->kode,
+                    'role' => $user->role,
+                    'gender' => $user->gender,
+                    'sekolah' => $user->sekolah,
+                    'kelas' => $user->kelas,
+                    'avatar' => $user->avatar,
+                    'tanggal_kunjungan' => $now,
+                    'tanggal_kunjungan_hari' => $now->toDateString(),
+                    'tanggal_kunjungan_bulan' => $now->format('M Y'),
+                    'tanggal_kunjungan_tahun' => $now->year,
+                ]);
+            } catch (\Throwable $e) {
+                \Log::error('Login visit record failed: ' . $e->getMessage());
+            }
+        
+            return response()->json([
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+                'user' => $user,
+            ], 200);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'message' => 'Server Error: ' . $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
     }
     
 
@@ -648,10 +663,6 @@ public function getSmkGuru($id)
     {
         $siswa = Siswa::all(); // Mengambil semua data siswa
         
-        if ($siswa->isEmpty()) {
-            return response()->json(['message' => 'Tidak ada siswa ditemukan'], 404);
-        }
-        
         return response()->json($siswa);
     }
 
@@ -659,10 +670,6 @@ public function getSmkGuru($id)
 {
     // Ambil semua siswa SD
     $siswas = SdSiswa::all();
-
-    if ($siswas->isEmpty()) {
-        return response()->json(['message' => 'Tidak ada siswa SD ditemukan'], 404);
-    }
 
     return response()->json($siswas);
 }
@@ -672,10 +679,6 @@ public function smpSiswa()
     // Ambil semua siswa SMP
     $siswas = SmpSiswa::all();
 
-    if ($siswas->isEmpty()) {
-        return response()->json(['message' => 'Tidak ada siswa SMP ditemukan'], 404);
-    }
-
     return response()->json($siswas);
 }
 
@@ -683,10 +686,6 @@ public function smkSiswa()
 {
     // Ambil semua siswa SMK
     $siswas = SmkSiswa::all();
-
-    if ($siswas->isEmpty()) {
-        return response()->json(['message' => 'Tidak ada siswa SMK ditemukan'], 404);
-    }
 
     return response()->json($siswas);
 }
@@ -696,10 +695,6 @@ public function guru()
 {
    $guru = Guru::all();
 
-   if ($guru -> isEmpty()){
-    return response()->json(['message' => 'Tidak ada guru ditemukan'],404);
-   }
-
    return response()->json($guru);
 }
 
@@ -707,10 +702,6 @@ public function sdGuru()
 {
     // Ambil semua guru SD
     $gurus = SdGuru::all();
-
-    if ($gurus->isEmpty()) {
-        return response()->json(['message' => 'Tidak ada guru SD ditemukan'], 404);
-    }
 
     return response()->json($gurus);
 }
@@ -720,10 +711,6 @@ public function smpGuru()
     // Ambil semua guru SMP
     $gurus = SmpGuru::all();
 
-    if ($gurus->isEmpty()) {
-        return response()->json(['message' => 'Tidak ada guru SMP ditemukan'], 404);
-    }
-
     return response()->json($gurus);
 }
 
@@ -732,20 +719,12 @@ public function smkGuru()
     // Ambil semua guru SMK
     $gurus = SmkGuru::all();
 
-    if ($gurus->isEmpty()) {
-        return response()->json(['message' => 'Tidak ada guru SMK ditemukan'], 404);
-    }
-
     return response()->json($gurus);
 }
 
 public function perpus()
 {
     $perpus = Perpus::all();
-
-    if ($perpus -> isEmpty()){
-     return response()->json(['message' => 'Tidak ada guru ditemukan'],404);
-    }
  
     return response()->json($perpus);
 }
@@ -2254,5 +2233,4 @@ public function updateSmkGuru(Request $request, $id) {
     ], 200);
 }
 };
-
 

@@ -56,6 +56,30 @@ return [
             'throw' => false,
         ],
 
+        'supabase_cover' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => 'img_cover',
+            'url' => env('SUPABASE_URL') . '/storage/v1/object/public/img_cover',
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+        ],
+
+        'supabase_pdf' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => 'pdf_buku',
+            'url' => env('SUPABASE_URL') . '/storage/v1/object/public/pdf_buku',
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'throw' => false,
+        ],
+
     ],
 
     /*

@@ -18,8 +18,8 @@ class DatabaseSeeder extends Seeder
         User::create([
             'username' => 'admin',
             'email' => 'admin@example.com',
-            'password' => Hash::make('admin123'),
-            'kode' => 'admin',
+            'password' => Hash::make('Admin_123'),
+            'kode' => '412345',
             'role' => 'Admin',
             'gender' => 'Laki-Laki',
             'is_approved' => true,
@@ -29,8 +29,8 @@ class DatabaseSeeder extends Seeder
         User::create([
             'username' => 'siswa',
             'email' => 'siswa@example.com',
-            'password' => Hash::make('siswa123'),
-            'kode' => 'siswa',
+            'password' => Hash::make('Siswa_123'),
+            'kode' => '512345',
             'role' => 'Siswa',
             'gender' => 'Laki-Laki',
             'sekolah' => 'SMK',
@@ -42,8 +42,8 @@ class DatabaseSeeder extends Seeder
         User::create([
             'username' => 'guru',
             'email' => 'guru@example.com',
-            'password' => Hash::make('guru123'),
-            'kode' => 'guru',
+            'password' => Hash::make('Guru_123'),
+            'kode' => '212345',
             'role' => 'Guru',
             'gender' => 'Perempuan',
             'sekolah' => 'SMK',

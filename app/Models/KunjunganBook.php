@@ -14,6 +14,8 @@ class KunjunganBook extends Model
 
     protected $fillable = [
         'book_id',
+        'user_id',
+        'username',
         'judul',
         'deskripsi',
         'sekolah',
@@ -36,6 +38,9 @@ class KunjunganBook extends Model
 
       public function getCoverUrlAttribute()
     {
+        if ($this->cover && (str_starts_with($this->cover, 'http://') || str_starts_with($this->cover, 'https://'))) {
+            return $this->cover;
+        }
         return $this->cover ? Storage::url($this->cover) : null;
     }
 }
